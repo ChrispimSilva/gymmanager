@@ -70,6 +70,8 @@
 
 ```bash
 # 1. Clone o repositório
+git clone https://github.com/ChrispimSilva/gymmanager.git
+# OU via SSH
 git clone git@github.com:ChrispimSilva/gymmanager.git
 
 # 2. Entre na pasta do projeto
