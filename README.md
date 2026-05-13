@@ -23,6 +23,17 @@
 
 **GymManager** é uma aplicação web progressiva (PWA) desenvolvida em React + TypeScript para gestão de academias. O sistema opera 100% no navegador utilizando **localStorage** como banco de dados, sem necessidade de backend ou servidor.
 
+## 👥 Equipe de Desenvolvimento
+| Responsável	| GitHub
+| --- | --- |
+| Anderson Chrispim da Silva	| @ChrispimSilva
+| Israel Felipe Chaves da Silva	| @Raelmat
+| Kayque Pardim dos Santos	| @kayque-pardim
+| Marcus Vinícius Campos Machado	| @marcusmachado91
+| Nathan de Sales Messias	| @N  athanosPregui
+| Robson Silva de Pinho	| @RobSlva
+
+
 ### Funcionalidades Principais
 
 | Funcionalidade | Descrição |
