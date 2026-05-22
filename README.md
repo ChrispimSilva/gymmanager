@@ -31,8 +31,8 @@
 | Israel Felipe Chaves da Silva	| @Raelmat
 | Kayque Pardim dos Santos	| @kayque-pardim
 | Marcus Vinícius Campos Machado	| @marcusmachado91
-| Nathan de Sales Messias	| @N  athanosPregui
-| Robson Silva de Pinho	| @RobSlva
+| Nathan de Sales Messias	| @NathanosPregui
+| Robson Silva de Pinho	| @RobSlva | Fernanda Macedo Klein | @Fernanda9209
 
 
 ### Funcionalidades Principais
