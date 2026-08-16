@@ -169,18 +169,12 @@ gymmanager/
 
 ## 🏗️ Arquitetura e Documentação Técnica
 
-Para entender a fundo como o projeto funciona, consulte a documentação de arquitetura:
+Para entender a fundo como o projeto funciona e conferir o plano de testes, consulte os documentos:
 
-📖 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+- 📖 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Arquitetura técnica, diagramas de entidades, fluxo de autenticação e guia de migração.
+- 📋 **[docs/QA.md](docs/QA.md)** — Manual de QA, instruções para subir a aplicação localmente e matriz de cenários de teste funcionais e de regressão.
 
-A documentação cobre:
-- **Fluxo de Autenticação** — Como funciona o login e controle de acesso por perfil
-- **Persistência de Dados** — Como e onde os dados são armazenados (localStorage)
-- **Padrão dos Services** — Estrutura CRUD usada em todos os services
-- **Diagrama de Entidades** — Relacionamento entre User, Student, Workout, etc.
-- **Guia de Migração** — Passo a passo para migrar para PostgreSQL/MySQL com Prisma ORM
-
-> **Nota:** Este projeto usa `localStorage` como banco de dados (ideal para estudo e prototipação). Consulte o guia de migração na documentação para evoluir para um backend real.
+> **Nota:** Este projeto usa `localStorage` através do Repository Pattern com interfaces desacopladas (ideal para estudo, prototipação e PWA offline). Consulte o guia de migração na documentação para evoluir para um backend real.
 
 ---
 

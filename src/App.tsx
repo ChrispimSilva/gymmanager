@@ -1,15 +1,20 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import StudentsPage from './pages/StudentsPage';
 import WorkoutsPage from './pages/WorkoutsPage';
 import MyWorkoutsPage from './pages/MyWorkoutsPage';
+import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
+import EquipmentsPage from './pages/EquipmentsPage';
 import ExercisesPage from './pages/ExercisesPage';
 import ProgressPage from './pages/ProgressPage';
 import HistoryPage from './pages/HistoryPage';
+import SettingsPage from './pages/SettingsPage';
 import { seedData } from './utils/seedData';
 import { useEffect } from 'react';
 
@@ -30,7 +35,7 @@ function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    seedData();
+    void seedData();
   }, []);
 
   return (
@@ -39,12 +44,15 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="alunos" element={<StudentsPage />} />
+        <Route path="alunos" element={<RoleGuard allowed={['admin', 'instrutor']}><StudentsPage /></RoleGuard>} />
         <Route path="treinos" element={<RoleGuard allowed={['admin', 'instrutor']}><WorkoutsPage /></RoleGuard>} />
-        <Route path="meus-treinos" element={<MyWorkoutsPage />} />
+        <Route path="meus-treinos" element={<RoleGuard allowed={['aluno']}><MyWorkoutsPage /></RoleGuard>} />
+        <Route path="treino-ativo/:workoutId" element={<RoleGuard allowed={['instrutor', 'aluno']}><ActiveWorkoutPage /></RoleGuard>} />
+        <Route path="aparelhos" element={<RoleGuard allowed={['admin', 'instrutor']}><EquipmentsPage /></RoleGuard>} />
         <Route path="exercicios" element={<ExercisesPage />} />
         <Route path="evolucao" element={<ProgressPage />} />
-        <Route path="historico" element={<RoleGuard allowed={['admin', 'instrutor']}><HistoryPage /></RoleGuard>} />
+        <Route path="historico" element={<HistoryPage />} />
+        <Route path="configuracoes" element={<RoleGuard allowed={['admin']}><SettingsPage /></RoleGuard>} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -54,11 +62,15 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </ThemeProvider>
+      <SettingsProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </SettingsProvider>
     </BrowserRouter>
   );
 }

@@ -5,7 +5,7 @@ import { activityService } from '../services/activityService';
 
 const SEED_KEY = 'gymmanager-seeded';
 
-export function seedData() {
+export async function seedData() {
   if (localStorage.getItem(SEED_KEY)) return;
 
   // Create demo students
@@ -68,7 +68,11 @@ export function seedData() {
     },
   ];
 
-  const createdStudents = students.map(s => studentService.create(s));
+  const createdStudents = [];
+  for (const s of students) {
+    const created = await studentService.create(s);
+    createdStudents.push(created);
+  }
 
   // Create demo workouts
   const workouts = [
@@ -123,7 +127,9 @@ export function seedData() {
     },
   ];
 
-  workouts.forEach(w => workoutService.create(w));
+  for (const w of workouts) {
+    await workoutService.create(w);
+  }
 
   // Create demo physical progress
   const progressData = [
@@ -146,10 +152,10 @@ export function seedData() {
     { studentId: createdStudents[2].id, weight: 55, bodyFat: 23, muscleMass: 23, recordedAt: '2026-04-01T10:00:00Z' },
   ];
 
-  progressData.forEach(p => {
+  for (const p of progressData) {
     const student = createdStudents.find(s => s.id === p.studentId);
-    progressService.create(p, student?.height || 170);
-  });
+    await progressService.create(p, student?.height || 170);
+  }
 
   // Create activity logs
   const activities = [
@@ -161,7 +167,9 @@ export function seedData() {
     { userId: 'usr-inst-001', type: 'workout_created' as const, description: 'Treino criado: Treino A - Peito/Ombro para Pedro Santos' },
   ];
 
-  activities.forEach(a => activityService.log(a));
+  for (const a of activities) {
+    await activityService.log(a);
+  }
 
   localStorage.setItem(SEED_KEY, 'true');
 }

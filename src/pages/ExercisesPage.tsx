@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Search, Filter, X, Dumbbell, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, X, Dumbbell, ChevronDown, Plus, Sparkles } from 'lucide-react';
 import { useExercises } from '../hooks/useExercises';
+import { useAuth } from '../contexts/AuthContext';
+import { CustomExerciseModal } from '../components/exercise/CustomExerciseModal';
 import type { NormalizedExercise } from '../types';
 
 // Muscle group color map
@@ -23,6 +25,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function ExercisesPage() {
+  const { user } = useAuth();
   const {
     filtered,
     categories,
@@ -33,35 +36,53 @@ export default function ExercisesPage() {
     setSelectedCategory,
     selectedEquipment,
     setSelectedEquipment,
+    reloadCustomExercises,
   } = useExercises();
 
   const [selectedExercise, setSelectedExercise] = useState<NormalizedExercise | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [customModalOpen, setCustomModalOpen] = useState(false);
+
+  const canCreateExercise = user?.role === 'admin' || user?.role === 'instrutor';
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          Catálogo de Exercícios
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-          {filtered.length} exercícios disponíveis
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Catálogo de Exercícios
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            {filtered.length} exercícios disponíveis
+          </p>
+        </div>
+
+        {canCreateExercise && (
+          <button
+            onClick={() => setCustomModalOpen(true)}
+            className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white shadow-lg shadow-brand-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer"
+            style={{ background: 'var(--accent)' }}
+          >
+            <Plus className="w-4 h-4" />
+            Novo Exercício Personalizado
+          </button>
+        )}
       </div>
 
       {/* Search & Filter Bar */}
       <div className="space-y-3">
         <div className="flex gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar exercício por nome ou músculo..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+              className="w-full pr-4 py-3 rounded-2xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/50 min-h-[46px]"
               style={{
+                paddingLeft: '2.75rem',
                 background: 'var(--bg-secondary)',
                 borderColor: 'var(--border-color)',
                 color: 'var(--text-primary)',
@@ -70,7 +91,7 @@ export default function ExercisesPage() {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-sm font-medium transition-all cursor-pointer ${
               showFilters || selectedCategory || selectedEquipment
                 ? 'bg-brand-500/10 text-brand-500 border-brand-500/30'
                 : ''
@@ -90,7 +111,7 @@ export default function ExercisesPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div
-            className="p-4 rounded-2xl border space-y-4 animate-slide-down"
+            className="p-4 rounded-3xl border space-y-4 animate-slide-down"
             style={{
               background: 'var(--card-bg)',
               borderColor: 'var(--border-color)',
@@ -104,7 +125,7 @@ export default function ExercisesPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSelectedCategory('')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                     !selectedCategory ? 'bg-brand-500 text-white' : ''
                   }`}
                   style={selectedCategory ? { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' } : {}}
@@ -115,7 +136,7 @@ export default function ExercisesPage() {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat === selectedCategory ? '' : cat)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                       selectedCategory === cat ? 'text-white' : ''
                     }`}
                     style={
@@ -138,7 +159,7 @@ export default function ExercisesPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSelectedEquipment('')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                     !selectedEquipment ? 'bg-brand-500 text-white' : ''
                   }`}
                   style={selectedEquipment ? { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' } : {}}
@@ -149,7 +170,7 @@ export default function ExercisesPage() {
                   <button
                     key={eq}
                     onClick={() => setSelectedEquipment(eq === selectedEquipment ? '' : eq)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                       selectedEquipment === eq ? 'bg-brand-500 text-white' : ''
                     }`}
                     style={selectedEquipment !== eq ? { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' } : {}}
@@ -164,7 +185,7 @@ export default function ExercisesPage() {
             {(selectedCategory || selectedEquipment) && (
               <button
                 onClick={() => { setSelectedCategory(''); setSelectedEquipment(''); }}
-                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer"
               >
                 <X className="w-3 h-3" /> Limpar filtros
               </button>
@@ -179,7 +200,7 @@ export default function ExercisesPage() {
           <div
             key={exercise.id}
             onClick={() => setSelectedExercise(exercise)}
-            className={`rounded-2xl overflow-hidden border card-hover cursor-pointer animate-slide-up`}
+            className={`rounded-3xl overflow-hidden border card-hover cursor-pointer animate-slide-up relative`}
             style={{
               background: 'var(--card-bg)',
               borderColor: 'var(--border-color)',
@@ -209,11 +230,18 @@ export default function ExercisesPage() {
               />
               {/* Category badge */}
               <div
-                className="absolute top-2 left-2 px-2 py-1 rounded-lg text-[10px] font-bold text-white"
+                className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl text-[10px] font-bold text-white shadow-sm"
                 style={{ background: categoryColors[exercise.category] || '#94a3b8' }}
               >
                 {exercise.category}
               </div>
+
+              {/* Custom badge */}
+              {exercise.isCustom && (
+                <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-purple-600 text-white flex items-center gap-1 shadow-sm">
+                  <Sparkles className="w-3 h-3" /> Custom
+                </div>
+              )}
             </div>
 
             {/* Info */}
@@ -226,7 +254,7 @@ export default function ExercisesPage() {
               </h3>
               <div className="flex items-center gap-2 mt-2">
                 <span
-                  className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                  className="text-[10px] px-2.5 py-0.5 rounded-lg font-medium"
                   style={{
                     background: 'var(--bg-tertiary)',
                     color: 'var(--text-secondary)',
@@ -256,7 +284,7 @@ export default function ExercisesPage() {
             Nenhum exercício encontrado
           </p>
           <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Tente alterar os filtros ou busca
+            Tente alterar os filtros ou crie um novo exercício personalizado
           </p>
         </div>
       )}
@@ -268,6 +296,15 @@ export default function ExercisesPage() {
           onClose={() => setSelectedExercise(null)}
         />
       )}
+
+      {/* Custom Exercise Modal */}
+      <CustomExerciseModal
+        isOpen={customModalOpen}
+        onClose={() => setCustomModalOpen(false)}
+        onCreated={() => {
+          void reloadCustomExercises();
+        }}
+      />
     </div>
   );
 }
@@ -282,85 +319,124 @@ function ExerciseDetailModal({
   exercise: NormalizedExercise;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-2xl rounded-2xl shadow-2xl border animate-scale-in max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl border animate-scale-in max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
-        {/* GIF */}
+        {/* Modal Header */}
         <div
-          className="h-72 md:h-96 relative overflow-hidden rounded-t-2xl"
-          style={{ background: 'var(--bg-tertiary)' }}
+          className="flex items-center justify-between mb-4 pb-3 border-b"
+          style={{ borderColor: 'var(--border-color)' }}
+        >
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {exercise.nome}
+            </h2>
+            <span
+              className="px-3 py-1 rounded-xl text-xs font-bold text-white shadow-sm"
+              style={{ background: categoryColors[exercise.category] || '#94a3b8' }}
+            >
+              {exercise.category}
+            </span>
+            {exercise.isCustom && (
+              <span className="px-3 py-1 rounded-xl text-xs font-bold bg-purple-600 text-white flex items-center gap-1 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5" /> Personalizado
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+          </button>
+        </div>
+
+        {/* GIF Canvas */}
+        <div
+          className="h-64 sm:h-80 md:h-96 relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border p-3 flex items-center justify-center mb-5 shadow-inner"
+          style={{ borderColor: 'var(--border-color)' }}
         >
           <img
             src={exercise.gif}
             alt={exercise.nome}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain rounded-xl"
+            onError={e => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
           />
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 rounded-xl bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <div
-            className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-            style={{ background: categoryColors[exercise.category] || '#94a3b8' }}
-          >
-            {exercise.category}
-          </div>
         </div>
 
-        {/* Details */}
-        <div className="p-6">
-          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-            {exercise.nome}
-          </h2>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span
-              className="px-3 py-1 rounded-lg text-xs font-medium"
+        {/* Details & Pills */}
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2.5">
+            <div
+              className="px-3.5 py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5"
               style={{
-                background: `${categoryColors[exercise.category]}15`,
-                color: categoryColors[exercise.category],
+                background: 'var(--bg-tertiary)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-primary)',
               }}
             >
-              🎯 {exercise.musculos}
-            </span>
-            <span
-              className="px-3 py-1 rounded-lg text-xs font-medium"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              <span>🎯 Músculos:</span>
+              <span className="font-bold">{exercise.musculos}</span>
+            </div>
+
+            <div
+              className="px-3.5 py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5"
+              style={{
+                background: 'var(--bg-tertiary)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
             >
-              🔧 {exercise.equipamento}
-            </span>
+              <span>🔧 Equipamento:</span>
+              <span className="font-bold">{exercise.equipamento}</span>
+            </div>
           </div>
 
           {exercise.descricao && (
             <div
-              className="p-4 rounded-xl mt-4"
-              style={{ background: 'var(--bg-tertiary)' }}
+              className="p-4 rounded-2xl border"
+              style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}
             >
-              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Descrição
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                Instruções de Execução
               </h3>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-xs sm:text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 {exercise.descricao}
               </p>
             </div>
           )}
 
-          {/* Link to GIF */}
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+          {/* Action footer */}
+          <div className="pt-3 border-t flex justify-end" style={{ borderColor: 'var(--border-color)' }}>
             <a
               href={exercise.gif}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-              style={{ background: 'var(--accent)', color: 'white' }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
+              style={{ background: 'var(--accent)' }}
             >
-              🎬 Ver exercício em tela cheia
+              🎬 Abrir GIF em alta resolução
             </a>
           </div>
         </div>

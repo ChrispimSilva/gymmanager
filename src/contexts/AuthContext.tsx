@@ -4,16 +4,18 @@ import { userService } from '../services/userService';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (data: { name: string; email: string; password: string; role: UserRole }) => { success: boolean; error?: string };
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (data: { name: string; email: string; password: string; role: UserRole }) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (data: Partial<User>) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  login: () => false,
-  register: () => ({ success: false }),
+  login: async () => false,
+  register: async () => ({ success: false }),
+  updateProfile: async () => false,
   logout: () => {},
   isAuthenticated: false,
 });
@@ -32,8 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = (email: string, password: string): boolean => {
-    const found = userService.authenticate(email, password);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const found = await userService.authenticate(email, password);
     if (found) {
       setUser(found);
       return true;
@@ -41,12 +43,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const register = (data: { name: string; email: string; password: string; role: UserRole }): { success: boolean; error?: string } => {
-    const result = userService.register(data);
+  const register = async (data: { name: string; email: string; password: string; role: UserRole }): Promise<{ success: boolean; error?: string }> => {
+    const result = await userService.register(data);
     if (result.success && result.user) {
       setUser(result.user);
     }
     return { success: result.success, error: result.error };
+  };
+
+  const updateProfile = async (data: Partial<User>): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const updated = await userService.update(user.id, data);
+      if (updated) {
+        setUser(updated);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   };
 
   const logout = () => {
@@ -54,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, register, updateProfile, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

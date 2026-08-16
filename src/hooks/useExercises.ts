@@ -1,27 +1,61 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import exercisesData from '../data/exercises.json';
-import { normalizeMuscleGroup, type NormalizedExercise, type Exercise } from '../types';
+import { customExerciseService } from '../services/customExerciseService';
+import { normalizeMuscleGroup, type NormalizedExercise, type Exercise, type CustomExercise } from '../types';
 
 export function useExercises() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
+  const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
+
+  const loadCustom = useCallback(async () => {
+    try {
+      const data = await customExerciseService.getAll();
+      setCustomExercises(data);
+    } catch {
+      // Keep static exercises
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function init() {
+      try {
+        const data = await customExerciseService.getAll();
+        if (active) setCustomExercises(data);
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    void init();
+    return () => { active = false; };
+  }, []);
 
   const exercises: NormalizedExercise[] = useMemo(() => {
-    return (exercisesData as Exercise[]).map((ex, index) => ({
+    const staticList: NormalizedExercise[] = (exercisesData as Exercise[]).map((ex, index) => ({
       ...ex,
       id: index,
       category: normalizeMuscleGroup(ex.musculos),
+      isCustom: false,
     }));
-  }, []);
+
+    const customList: NormalizedExercise[] = customExercises.map(ex => ({
+      ...ex,
+      category: ex.category || normalizeMuscleGroup(ex.musculos),
+      isCustom: true,
+    }));
+
+    return [...customList, ...staticList];
+  }, [customExercises]);
 
   const categories = useMemo(() => {
-    const cats = [...new Set(exercises.map(e => e.category))].sort();
+    const cats = [...new Set(exercises.map(e => e.category))].filter(Boolean).sort();
     return cats;
   }, [exercises]);
 
   const equipments = useMemo(() => {
-    const equips = [...new Set(exercises.map(e => e.equipamento))].sort();
+    const equips = [...new Set(exercises.map(e => e.equipamento))].filter(Boolean).sort();
     return equips;
   }, [exercises]);
 
@@ -47,6 +81,21 @@ export function useExercises() {
     return result;
   }, [exercises, searchQuery, selectedCategory, selectedEquipment]);
 
+  const exerciseMap = useMemo(() => {
+    const map = new Map<string | number, NormalizedExercise>();
+    exercises.forEach(e => {
+      map.set(e.id, e);
+      if (typeof e.id === 'number') {
+        map.set(String(e.id), e);
+      }
+    });
+    return map;
+  }, [exercises]);
+
+  const getExerciseById = useCallback((id: number | string): NormalizedExercise | undefined => {
+    return exerciseMap.get(id);
+  }, [exerciseMap]);
+
   return {
     exercises,
     filtered,
@@ -58,6 +107,7 @@ export function useExercises() {
     setSelectedCategory,
     selectedEquipment,
     setSelectedEquipment,
-    getExerciseById: (id: number) => exercises[id],
+    getExerciseById,
+    reloadCustomExercises: loadCustom,
   };
 }

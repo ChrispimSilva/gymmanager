@@ -39,20 +39,30 @@
    Base Styles
    ============================================================ */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 
-html {
-  scroll-behavior: smooth;
-}
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
 
-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 }
 
 /* Light theme (default) */
@@ -66,6 +76,7 @@ body {
   --border-color: #e2e8f0;
   --shadow-color: rgba(15, 23, 42, 0.08);
   --card-bg: #ffffff;
+  --header-glass: rgba(255, 255, 255, 0.82);
   --sidebar-bg: #0f172a;
   --sidebar-text: #e2e8f0;
   --accent: #10b981;
@@ -86,6 +97,7 @@ body {
   --border-color: #334155;
   --shadow-color: rgba(0, 0, 0, 0.3);
   --card-bg: #1e293b;
+  --header-glass: rgba(15, 23, 42, 0.82);
   --sidebar-bg: #020617;
   --sidebar-text: #e2e8f0;
   --accent: #10b981;
@@ -200,7 +212,7 @@ body {
 }
 
 .gradient-brand {
-  background: linear-gradient(135deg, #10b981, #059669, #047857);
+  background: var(--brand-gradient, linear-gradient(135deg, #10b981, #059669, #047857));
 }
 
 .gradient-dark {
@@ -208,11 +220,11 @@ body {
 }
 
 .gradient-hero {
-  background: linear-gradient(160deg, #0a0f1a 0%, #0f172a 40%, #0d2a2a 70%, #0f3d35 100%);
+  background: var(--hero-gradient, linear-gradient(160deg, #0a0f1a 0%, #0f172a 40%, #0d2a2a 70%, #0f3d35 100%));
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: var(--text-gradient, linear-gradient(135deg, #10b981, #34d399));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

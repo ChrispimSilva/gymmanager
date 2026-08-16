@@ -1,27 +1,70 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Plus, UserCheck, UserX, X, Mail, Phone, Target, Ruler, Weight } from 'lucide-react';
 import { studentService } from '../services/studentService';
 import { activityService } from '../services/activityService';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 import type { Student } from '../types';
 
 export default function StudentsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const isAluno = user?.role === 'aluno';
 
-  const [students, setStudents] = useState<Student[]>(() => {
-    if (isAluno && user) {
-      const myStudent = studentService.getByUserId(user.id);
-      return myStudent ? [myStudent] : [];
-    }
-    return studentService.getAll();
-  });
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedStudentAge, setSelectedStudentAge] = useState<number | null>(null);
+
+  // Confirm delete dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+
+  const fetchStudents = useCallback(async () => {
+    try {
+      if (isAluno && user) {
+        const myStudent = await studentService.getByUserId(user.id);
+        setStudents(myStudent ? [myStudent] : []);
+      } else {
+        const data = await studentService.getAll();
+        setStudents(data);
+      }
+    } catch {
+      toast.error('Erro ao carregar lista de alunos.');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAluno, user, toast]);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        if (isAluno && user) {
+          const myStudent = await studentService.getByUserId(user.id);
+          if (active) setStudents(myStudent ? [myStudent] : []);
+        } else {
+          const data = await studentService.getAll();
+          if (active) setStudents(data);
+        }
+      } catch {
+        if (active) toast.error('Erro ao carregar lista de alunos.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [isAluno, user, toast]);
+
+  const refreshStudents = async () => {
+    await fetchStudents();
+  };
 
   const filtered = useMemo(() => {
     let result = students;
@@ -37,20 +80,43 @@ export default function StudentsPage() {
     return result;
   }, [students, search, filter]);
 
-  const refreshStudents = useCallback(() => {
-    setStudents(studentService.getAll());
-  }, []);
+  const handleOpenDelete = (student: Student) => {
+    setStudentToDelete(student);
+    setDeleteConfirmOpen(true);
+  };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este aluno?')) {
-      studentService.delete(id);
-      refreshStudents();
+  const handleConfirmDelete = async () => {
+    if (!studentToDelete) return;
+    try {
+      await studentService.delete(studentToDelete.id);
+      await activityService.log({
+        userId: user?.id || 'usr-inst-001',
+        type: 'student_added',
+        description: `Aluno removido: ${studentToDelete.name}`,
+      });
+      toast.success(`Aluno ${studentToDelete.name} excluído com sucesso!`, 'Exclusão concluída');
+      await refreshStudents();
+    } catch {
+      toast.error('Não foi possível excluir o aluno.');
+    } finally {
+      setDeleteConfirmOpen(false);
+      setStudentToDelete(null);
     }
   };
 
-  const handleToggleActive = (id: string) => {
-    studentService.toggleActive(id);
-    refreshStudents();
+  const handleToggleActive = async (student: Student) => {
+    try {
+      const updated = await studentService.toggleActive(student.id);
+      if (updated) {
+        toast.info(
+          `Aluno ${updated.name} está agora ${updated.active ? 'ativo' : 'inativo'}.`,
+          'Status atualizado'
+        );
+        await refreshStudents();
+      }
+    } catch {
+      toast.error('Erro ao alternar status do aluno.');
+    }
   };
 
   return (
@@ -70,7 +136,7 @@ export default function StudentsPage() {
         {!isAluno && (
           <button
             onClick={() => { setEditingStudent(null); setShowForm(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-white text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/25"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-white text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/25 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Novo Aluno
@@ -80,144 +146,162 @@ export default function StudentsPage() {
 
       {/* Search & Filters - hidden for aluno */}
       {!isAluno && (
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar aluno..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/50"
-            style={{
-              background: 'var(--bg-secondary)',
-              borderColor: 'var(--border-color)',
-              color: 'var(--text-primary)',
-            }}
-          />
-        </div>
-        <div className="flex gap-2">
-          {(['all', 'active', 'inactive'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
-                filter === f
-                  ? 'bg-brand-500/10 text-brand-500 border-brand-500/30'
-                  : 'border-transparent'
-              }`}
-              style={filter !== f ? {
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar aluno por nome, e-mail ou objetivo..."
+              className="w-full pr-4 py-3 rounded-2xl border text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/50 min-h-[46px]"
+              style={{
+                paddingLeft: '2.75rem',
                 background: 'var(--bg-secondary)',
-                color: 'var(--text-secondary)',
                 borderColor: 'var(--border-color)',
-              } : {}}
-            >
-              {f === 'all' ? 'Todos' : f === 'active' ? 'Ativos' : 'Inativos'}
-            </button>
-          ))}
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div className="flex gap-2">
+            {(['all', 'active', 'inactive'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border cursor-pointer ${
+                  filter === f
+                    ? 'bg-brand-500/10 text-brand-500 border-brand-500/30'
+                    : 'border-transparent'
+                }`}
+                style={filter !== f ? {
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-color)',
+                } : {}}
+              >
+                {f === 'all' ? 'Todos' : f === 'active' ? 'Ativos' : 'Inativos'}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       )}
 
-      {/* Students Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((student, i) => (
-          <div
-            key={student.id}
-            className={`rounded-2xl p-5 border card-hover cursor-pointer animate-slide-up stagger-${Math.min(i + 1, 6)}`}
-            style={{
-              background: 'var(--card-bg)',
-              borderColor: 'var(--border-color)',
-            }}
-            onClick={() => {
-              setSelectedStudent(student);
-              setSelectedStudentAge(
-                student.birthDate
-                  ? Math.floor((Date.now() - new Date(student.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-                  : null
-              );
-            }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                  style={{
-                    background: student.active
-                      ? 'linear-gradient(135deg, #10b981, #059669)'
-                      : 'linear-gradient(135deg, #94a3b8, #64748b)',
-                  }}
+      {/* Loading state */}
+      {loading ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div
+              key={i}
+              className="rounded-2xl p-5 border animate-pulse h-48"
+              style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Students Grid */
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((student, i) => (
+            <div
+              key={student.id}
+              className={`rounded-2xl p-5 border card-hover cursor-pointer animate-slide-up stagger-${Math.min(i + 1, 6)}`}
+              style={{
+                background: 'var(--card-bg)',
+                borderColor: 'var(--border-color)',
+              }}
+              onClick={() => {
+                setSelectedStudent(student);
+                setSelectedStudentAge(
+                  student.birthDate
+                    ? Math.floor((Date.now() - new Date(student.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                    : null
+                );
+              }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                    style={{
+                      background: student.active
+                        ? 'linear-gradient(135deg, #10b981, #059669)'
+                        : 'linear-gradient(135deg, #94a3b8, #64748b)',
+                    }}
+                  >
+                    {student.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {student.name}
+                    </h3>
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {student.email}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-lg text-[10px] font-semibold ${
+                    student.active
+                      ? 'bg-brand-500/10 text-brand-500'
+                      : 'bg-red-500/10 text-red-400'
+                  }`}
                 >
-                  {student.name.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                    {student.name}
-                  </h3>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    {student.email}
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`px-2 py-1 rounded-lg text-[10px] font-semibold ${
-                  student.active
-                    ? 'bg-brand-500/10 text-brand-500'
-                    : 'bg-red-500/10 text-red-400'
-                }`}
-              >
-                {student.active ? 'Ativo' : 'Inativo'}
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <Target className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                {student.goal}
-              </div>
-              <div className="flex gap-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                <span className="flex items-center gap-1">
-                  <Weight className="w-3 h-3" /> {student.weight}kg
-                </span>
-                <span className="flex items-center gap-1">
-                  <Ruler className="w-3 h-3" /> {student.height}cm
+                  {student.active ? 'Ativo' : 'Inativo'}
                 </span>
               </div>
-            </div>
 
-            {!isAluno && (
-            <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-              <button
-                onClick={e => { e.stopPropagation(); setEditingStudent(student); setShowForm(true); }}
-                className="flex-1 py-2 rounded-lg text-xs font-medium transition-all hover:bg-brand-500/10"
-                style={{ color: 'var(--accent)', background: 'var(--bg-tertiary)' }}
-              >
-                Editar
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); handleToggleActive(student.id); }}
-                className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  color: student.active ? '#f59e0b' : '#10b981',
-                  background: 'var(--bg-tertiary)',
-                }}
-              >
-                {student.active ? 'Desativar' : 'Ativar'}
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); handleDelete(student.id); }}
-                className="py-2 px-3 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-all"
-                style={{ background: 'var(--bg-tertiary)' }}
-              >
-                ✕
-              </button>
-            </div>
-            )}
-          </div>
-        ))}
-      </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <Target className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                  {student.goal}
+                </div>
+                <div className="flex gap-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <span className="flex items-center gap-1">
+                    <Weight className="w-3 h-3" /> {student.weight}kg
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Ruler className="w-3 h-3" /> {student.height}cm
+                  </span>
+                </div>
+              </div>
 
-      {filtered.length === 0 && (
+              {!isAluno && (
+                <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setEditingStudent(student); setShowForm(true); }}
+                    className="flex-1 py-2 rounded-lg text-xs font-medium transition-all hover:bg-brand-500/10 cursor-pointer"
+                    style={{ color: 'var(--accent)', background: 'var(--bg-tertiary)' }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleToggleActive(student); }}
+                    className="flex-1 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer"
+                    style={{
+                      color: student.active ? '#f59e0b' : '#10b981',
+                      background: 'var(--bg-tertiary)',
+                    }}
+                  >
+                    {student.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleOpenDelete(student); }}
+                    className="py-2 px-3 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                    style={{ background: 'var(--bg-tertiary)' }}
+                    title="Excluir Aluno"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
         <div className="text-center py-16">
           <UserX className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
           <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>
@@ -234,7 +318,7 @@ export default function StudentsPage() {
         <StudentFormModal
           student={editingStudent}
           onClose={() => { setShowForm(false); setEditingStudent(null); }}
-          onSave={() => { refreshStudents(); setShowForm(false); setEditingStudent(null); }}
+          onSave={async () => { await refreshStudents(); setShowForm(false); setEditingStudent(null); }}
         />
       )}
 
@@ -246,6 +330,18 @@ export default function StudentsPage() {
           onClose={() => setSelectedStudent(null)}
         />
       )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        title="Excluir Aluno"
+        message={`Tem certeza que deseja excluir o aluno ${studentToDelete?.name}? Todos os treinos e registros de evolução associados também serão excluídos permanentemente.`}
+        confirmLabel="Sim, Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => { setDeleteConfirmOpen(false); setStudentToDelete(null); }}
+      />
     </div>
   );
 }
@@ -262,6 +358,7 @@ function StudentFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { toast } = useToast();
   const [form, setForm] = useState({
     name: student?.name || '',
     email: student?.email || '',
@@ -272,36 +369,56 @@ function StudentFormModal({
     goal: student?.goal || 'Hipertrofia',
     active: student?.active ?? true,
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (student) {
-      studentService.update(student.id, form);
-    } else {
-      studentService.create({ ...form, photo: '' });
-      activityService.log({
-        userId: 'usr-inst-001',
-        type: 'student_added',
-        description: `Novo aluno cadastrado: ${form.name}`,
-      });
+    setSaving(true);
+    try {
+      if (student) {
+        await studentService.update(student.id, form);
+        toast.success(`Dados do aluno ${form.name} atualizados com sucesso!`, 'Aluno atualizado');
+      } else {
+        await studentService.create({ ...form, photo: '' });
+        await activityService.log({
+          userId: 'usr-inst-001',
+          type: 'student_added',
+          description: `Novo aluno cadastrado: ${form.name}`,
+        });
+        toast.success(`Aluno ${form.name} cadastrado com sucesso!`, 'Aluno cadastrado');
+      }
+      onSave();
+    } catch {
+      toast.error('Erro ao salvar dados do aluno.');
+    } finally {
+      setSaving(false);
     }
-    onSave();
   };
 
   const goals = ['Hipertrofia', 'Emagrecimento', 'Condicionamento', 'Definição', 'Saúde', 'Reabilitação'];
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-2xl p-6 shadow-2xl border animate-scale-in max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-3xl p-6 shadow-2xl border animate-scale-in max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {student ? 'Editar Aluno' : 'Novo Aluno'}
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5">
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
             <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
           </button>
         </div>
@@ -404,16 +521,17 @@ function StudentFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all"
+              className="flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
               style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 rounded-xl gradient-brand text-white text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/25"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl gradient-brand text-white text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/25 cursor-pointer disabled:opacity-50"
             >
-              {student ? 'Salvar' : 'Cadastrar'}
+              {saving ? 'Salvando...' : student ? 'Salvar' : 'Cadastrar'}
             </button>
           </div>
         </form>
@@ -436,16 +554,26 @@ function StudentDetailModal({
 }) {
   const bmi = student.weight / Math.pow(student.height / 100, 2);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-2xl p-6 shadow-2xl border animate-scale-in"
+        className="w-full max-w-md rounded-3xl p-6 shadow-2xl border animate-scale-in"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-xl gradient-brand flex items-center justify-center text-white font-bold text-xl">
+            <div className="w-14 h-14 rounded-2xl gradient-brand flex items-center justify-center text-white font-bold text-xl">
               {student.name.charAt(0)}
             </div>
             <div>
@@ -453,7 +581,7 @@ function StudentDetailModal({
                 {student.name}
               </h2>
               <span
-                className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
+                className={`text-xs px-2.5 py-0.5 rounded-lg font-semibold ${
                   student.active ? 'bg-brand-500/10 text-brand-500' : 'bg-red-500/10 text-red-400'
                 }`}
               >
@@ -461,7 +589,7 @@ function StudentDetailModal({
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5">
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
             <X className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
           </button>
         </div>
@@ -477,7 +605,7 @@ function StudentDetailModal({
           ].map(item => (
             <div
               key={item.label}
-              className="flex items-center justify-between px-4 py-3 rounded-xl"
+              className="flex items-center justify-between px-4 py-3 rounded-2xl"
               style={{ background: 'var(--bg-tertiary)' }}
             >
               <div className="flex items-center gap-2">
@@ -491,7 +619,7 @@ function StudentDetailModal({
           ))}
           {age !== null && (
             <div
-              className="flex items-center justify-between px-4 py-3 rounded-xl"
+              className="flex items-center justify-between px-4 py-3 rounded-2xl"
               style={{ background: 'var(--bg-tertiary)' }}
             >
               <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Idade</span>

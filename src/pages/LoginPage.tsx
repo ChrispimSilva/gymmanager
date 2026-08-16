@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { Dumbbell, Mail, Lock, Eye, EyeOff, AlertCircle, User, CheckCircle, ArrowRight } from 'lucide-react';
 import type { UserRole } from '../types';
 
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const resetForm = () => {
@@ -32,14 +35,21 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    const ok = login(email, password);
-    if (ok) {
-      navigate('/dashboard');
-    } else {
-      setError('Email ou senha incorretos');
+    try {
+      const ok = await login(email, password);
+      if (ok) {
+        toast.success('Bem-vindo de volta!', 'Login realizado');
+        navigate('/dashboard');
+      } else {
+        setError('Email ou senha incorretos');
+        toast.error('Email ou senha incorretos. Verifique suas credenciais.');
+      }
+    } catch {
+      setError('Erro inesperado ao realizar login');
+      toast.error('Ocorreu um erro ao processar sua solicitação.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -61,15 +71,21 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-
-    const result = register({ name: name.trim(), email, password, role });
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.error || 'Erro ao criar conta');
+    try {
+      const result = await register({ name: name.trim(), email, password, role });
+      if (result.success) {
+        toast.success('Conta criada com sucesso!', 'Bem-vindo ao GymManager');
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Erro ao criar conta');
+        toast.error(result.error || 'Não foi possível criar a conta.');
+      }
+    } catch {
+      setError('Erro ao criar conta');
+      toast.error('Erro de conexão ao criar conta.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const switchMode = (newMode: 'login' | 'register') => {
@@ -95,6 +111,8 @@ export default function LoginPage() {
   const iconSmallClasses = 'absolute w-4 h-4 text-slate-500 pointer-events-none';
   const btnStyle: React.CSSProperties = { paddingTop: '1rem', paddingBottom: '1rem' };
 
+  const { settings } = useSettings();
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-hero relative overflow-hidden">
       {/* Background */}
@@ -105,11 +123,25 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8 animate-slide-down">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/30 animate-pulse-glow">
-            <Dumbbell className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-1">GymManager</h1>
-          <p className="text-slate-400 text-sm">Sistema de Gestão de Academia</p>
+          {settings.logoUrl ? (
+            <img
+              src={settings.logoUrl}
+              alt={settings.gymName}
+              className="w-20 h-20 mx-auto mb-4 rounded-2xl object-contain bg-white/10 p-2 shadow-lg animate-pulse-glow"
+              onError={e => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div
+              className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-500/30 animate-pulse-glow"
+              style={{ background: 'var(--accent)' }}
+            >
+              <Dumbbell className="w-10 h-10 text-white" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-white mb-1">{settings.gymName}</h1>
+          <p className="text-slate-400 text-sm">Gestão de Academia & Treinos</p>
         </div>
 
         {/* Card */}
@@ -196,7 +228,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 id="login-submit"
-                className="w-full rounded-xl gradient-brand text-white font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2"
+                className="w-full rounded-xl gradient-brand text-white font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 cursor-pointer"
                 style={btnStyle}
               >
                 {loading ? (
@@ -214,7 +246,7 @@ export default function LoginPage() {
 
               <p className="text-center text-xs text-slate-500 pt-2">
                 Não tem conta?{' '}
-                <button type="button" onClick={() => switchMode('register')} className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
+                <button type="button" onClick={() => switchMode('register')} className="text-brand-400 hover:text-brand-300 font-medium transition-colors cursor-pointer">
                   Criar conta gratuitamente
                 </button>
               </p>
@@ -267,7 +299,7 @@ export default function LoginPage() {
                       key={r.value}
                       type="button"
                       onClick={() => setRole(r.value)}
-                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all duration-200 ${
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
                         role === r.value
                           ? 'border-brand-500/50 bg-brand-500/10'
                           : 'border-white/10 bg-white/5 hover:bg-white/10'
@@ -328,7 +360,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 id="register-submit"
-                className="w-full rounded-xl gradient-brand text-white font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2"
+                className="w-full rounded-xl gradient-brand text-white font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 cursor-pointer"
                 style={btnStyle}
               >
                 {loading ? (
@@ -346,7 +378,7 @@ export default function LoginPage() {
 
               <p className="text-center text-xs text-slate-500 pt-1">
                 Já tem conta?{' '}
-                <button type="button" onClick={() => switchMode('login')} className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
+                <button type="button" onClick={() => switchMode('login')} className="text-brand-400 hover:text-brand-300 font-medium transition-colors cursor-pointer">
                   Fazer login
                 </button>
               </p>

@@ -1,73 +1,120 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { Workout, WorkoutExercise } from '../types';
-
-const STORAGE_KEY = 'gymmanager-workouts';
-
-function getAll(): Workout[] {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
-}
-
-function save(workouts: Workout[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
-}
+import { workoutRepository, studentRepository } from '../repositories';
+import { notificationService } from './notificationService';
+import { activityService } from './activityService';
 
 export const workoutService = {
-  getAll(): Workout[] {
-    return getAll();
+  async getAll(): Promise<Workout[]> {
+    return workoutRepository.getAll();
   },
 
-  getById(id: string): Workout | undefined {
-    return getAll().find(w => w.id === id);
+  async getById(id: string): Promise<Workout | null> {
+    return workoutRepository.getById(id);
   },
 
-  getByStudentId(studentId: string): Workout[] {
-    return getAll().filter(w => w.studentId === studentId);
+  async getByStudentId(studentId: string): Promise<Workout[]> {
+    return workoutRepository.getByStudentId(studentId);
   },
 
-  create(workout: Omit<Workout, 'id' | 'createdAt' | 'updatedAt'>): Workout {
-    const workouts = getAll();
-    const newWorkout: Workout = {
-      ...workout,
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    workouts.push(newWorkout);
-    save(workouts);
-    return newWorkout;
+  async getByInstructorId(instructorId: string): Promise<Workout[]> {
+    return workoutRepository.getByInstructorId(instructorId);
   },
 
-  update(id: string, data: Partial<Workout>): Workout | null {
-    const workouts = getAll();
-    const index = workouts.findIndex(w => w.id === id);
-    if (index === -1) return null;
-    workouts[index] = {
-      ...workouts[index],
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    save(workouts);
-    return workouts[index];
+  async getCommunityWorkouts(): Promise<Workout[]> {
+    return workoutRepository.getCommunityWorkouts();
   },
 
-  updateExercises(id: string, exercises: WorkoutExercise[]): Workout | null {
-    return this.update(id, { exercises });
+  async create(workout: Omit<Workout, 'id' | 'createdAt' | 'updatedAt'>): Promise<Workout> {
+    const created = await workoutRepository.create(workout);
+    
+    // If assigned to a student, send them a notification
+    if (workout.studentId) {
+      const student = await studentRepository.getById(workout.studentId);
+      if (student?.userId) {
+        await notificationService.add({
+          userId: student.userId,
+          title: '📋 Novo Treino Prescrito',
+          message: `O treino "${workout.name}" foi adicionado à sua rotina.`,
+          type: 'workout',
+        });
+      }
+    }
+
+    await activityService.log({
+      userId: workout.instructorId || 'usr-inst-001',
+      type: 'workout_created',
+      description: `Treino "${workout.name}" criado.`,
+      relatedId: created.id,
+    });
+
+    return created;
   },
 
-  delete(id: string): boolean {
-    const workouts = getAll();
-    const filtered = workouts.filter(w => w.id !== id);
-    if (filtered.length === workouts.length) return false;
-    save(filtered);
-    return true;
+  async cloneWorkout(
+    workoutId: string,
+    targetStudentId?: string,
+    newName?: string
+  ): Promise<Workout | null> {
+    return workoutRepository.cloneWorkout(workoutId, targetStudentId, newName);
   },
 
-  getTotalCount(): number {
-    return getAll().length;
+  async prescribeToStudent(
+    workoutId: string,
+    studentId: string,
+    instructorId?: string
+  ): Promise<Workout | null> {
+    const original = await this.getById(workoutId);
+    if (!original) return null;
+
+    const student = await studentRepository.getById(studentId);
+    if (!student) return null;
+
+    // Clone workout to the student
+    const prescribed = await workoutRepository.cloneWorkout(
+      workoutId,
+      studentId,
+      original.name
+    );
+
+    if (prescribed) {
+      if (instructorId) {
+        await workoutRepository.update(prescribed.id, { instructorId });
+      }
+
+      // Notify student
+      if (student.userId) {
+        await notificationService.add({
+          userId: student.userId,
+          title: '🎯 Novo Treino Prescrito pelo Instrutor',
+          message: `O treino "${original.name}" foi atribuído ao seu perfil. Bora treinar!`,
+          type: 'workout',
+        });
+      }
+
+      await activityService.log({
+        userId: instructorId || 'usr-inst-001',
+        type: 'workout_updated',
+        description: `Treino "${original.name}" prescrito para o aluno ${student.name}.`,
+        relatedId: student.id,
+      });
+    }
+
+    return prescribed;
   },
 
-  getByInstructorId(instructorId: string): Workout[] {
-    return getAll().filter(w => w.instructorId === instructorId);
+  async update(id: string, data: Partial<Workout>): Promise<Workout | null> {
+    return workoutRepository.update(id, data);
+  },
+
+  async updateExercises(id: string, exercises: WorkoutExercise[]): Promise<Workout | null> {
+    return workoutRepository.updateExercises(id, exercises);
+  },
+
+  async delete(id: string): Promise<boolean> {
+    return workoutRepository.delete(id);
+  },
+
+  async getTotalCount(): Promise<number> {
+    return workoutRepository.getTotalCount();
   },
 };
