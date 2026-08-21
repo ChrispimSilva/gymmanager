@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "tunnel": "ssh -o StrictHostKeyChecking=no -p 443 -R0:localhost:4173 a.pinggy.io",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -29,6 +30,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

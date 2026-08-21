@@ -54,5 +54,11 @@ export default defineConfig({
   server: {
     host: true, // Expose on network (0.0.0.0)
     port: 5173,
+    allowedHosts: true,
+  },
+  preview: {
+    host: true,
+    port: 4173,
+    allowedHosts: true,
   },
 })
