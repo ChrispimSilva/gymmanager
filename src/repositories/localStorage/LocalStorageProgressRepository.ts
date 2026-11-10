@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { PhysicalProgress } from '../../types';
 import type { IProgressRepository } from '../interfaces/IProgressRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-progress';
 
@@ -21,7 +22,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
   }
 
   async getAll(): Promise<PhysicalProgress[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(p => matchesActiveTenant(p.tenantId));
   }
 
   async getByStudentId(studentId: string): Promise<PhysicalProgress[]> {
@@ -39,6 +40,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
     const records = this.getStorageData();
     const newRecord: PhysicalProgress = {
       ...data,
+      tenantId: resolveTenantId(data.tenantId),
       id: uuidv4(),
       bmi: calculateBMI(data.weight, heightCm),
     };
@@ -66,6 +68,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
   }
 
   async getTotalCount(): Promise<number> {
-    return this.getStorageData().length;
+    const all = await this.getAll();
+    return all.length;
   }
 }

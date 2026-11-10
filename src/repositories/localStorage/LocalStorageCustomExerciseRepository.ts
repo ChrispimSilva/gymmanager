@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CustomExercise } from '../../types';
 import type { ICustomExerciseRepository } from '../interfaces/ICustomExerciseRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-custom-exercises';
 
@@ -15,7 +16,7 @@ export class LocalStorageCustomExerciseRepository implements ICustomExerciseRepo
   }
 
   async getAll(): Promise<CustomExercise[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(e => matchesActiveTenant(e.tenantId));
   }
 
   async getById(id: string): Promise<CustomExercise | null> {
@@ -29,6 +30,7 @@ export class LocalStorageCustomExerciseRepository implements ICustomExerciseRepo
     const exercises = this.getStorageData();
     const newExercise: CustomExercise = {
       ...exercise,
+      tenantId: resolveTenantId(exercise.tenantId),
       id: `custom-${uuidv4()}`,
       isCustom: true,
       createdAt: new Date().toISOString(),

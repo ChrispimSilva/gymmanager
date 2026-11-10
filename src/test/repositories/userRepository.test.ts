@@ -12,16 +12,27 @@ describe('LocalStorageUserRepository', () => {
     userRepo = new LocalStorageUserRepository(studentRepo);
   });
 
-  it('should initialize with default demo users', async () => {
+  it('should initialize with default demo users including superadmin, admin, personal and aluno', async () => {
     const users = await userRepo.getAll();
-    expect(users.length).toBe(3);
+    expect(users.length).toBe(4);
+    expect(users.map(u => u.email)).toContain('superadmin@gym.com');
     expect(users.map(u => u.email)).toContain('admin@gym.com');
+    expect(users.map(u => u.email)).toContain('personal@gym.com');
+    expect(users.map(u => u.email)).toContain('aluno@gym.com');
   });
 
   it('should authenticate user with valid credentials', async () => {
     const user = await userRepo.authenticate('admin@gym.com', 'admin123');
     expect(user).not.toBeNull();
     expect(user?.role).toBe('admin');
+
+    const superUser = await userRepo.authenticate('superadmin@gym.com', 'super123');
+    expect(superUser).not.toBeNull();
+    expect(superUser?.role).toBe('superadmin');
+
+    const personal = await userRepo.authenticate('personal@gym.com', 'personal123');
+    expect(personal).not.toBeNull();
+    expect(personal?.role).toBe('personal');
   });
 
   it('should reject authentication with wrong password', async () => {
@@ -35,16 +46,19 @@ describe('LocalStorageUserRepository', () => {
       email: 'lucas@teste.com',
       password: 'password123',
       role: 'aluno',
+      tenantId: 'tenant-default',
     });
 
     expect(result.success).toBe(true);
     expect(result.user?.name).toBe('Lucas Teste');
+    expect(result.user?.tenantId).toBe('tenant-default');
 
     // Verify student was auto-created
     const student = await studentRepo.getByUserId(result.user!.id);
     expect(student).not.toBeNull();
     expect(student?.name).toBe('Lucas Teste');
     expect(student?.email).toBe('lucas@teste.com');
+    expect(student?.tenantId).toBe('tenant-default');
   });
 
   it('should reject registration if email already exists', async () => {

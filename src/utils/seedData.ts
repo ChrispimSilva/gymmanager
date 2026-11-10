@@ -2,6 +2,7 @@ import { studentService } from '../services/studentService';
 import { workoutService } from '../services/workoutService';
 import { progressService } from '../services/progressService';
 import { activityService } from '../services/activityService';
+import { DEFAULT_TENANT_ID } from '../types';
 
 const SEED_KEY = 'gymmanager-seeded';
 
@@ -21,6 +22,7 @@ export async function seedData() {
       active: true,
       photo: '',
       userId: 'usr-aluno-001',
+      tenantId: DEFAULT_TENANT_ID,
     },
     {
       name: 'Pedro Santos',
@@ -32,6 +34,7 @@ export async function seedData() {
       goal: 'Hipertrofia',
       active: true,
       photo: '',
+      tenantId: DEFAULT_TENANT_ID,
     },
     {
       name: 'Mariana Costa',
@@ -43,6 +46,7 @@ export async function seedData() {
       goal: 'Condicionamento',
       active: true,
       photo: '',
+      tenantId: DEFAULT_TENANT_ID,
     },
     {
       name: 'Lucas Oliveira',
@@ -54,6 +58,7 @@ export async function seedData() {
       goal: 'Hipertrofia',
       active: true,
       photo: '',
+      tenantId: DEFAULT_TENANT_ID,
     },
     {
       name: 'Julia Ferreira',
@@ -65,6 +70,7 @@ export async function seedData() {
       goal: 'Definição',
       active: false,
       photo: '',
+      tenantId: DEFAULT_TENANT_ID,
     },
   ];
 

@@ -1,6 +1,8 @@
-import type { GymSettings } from '../types';
+import type { GymSettings, Tenant } from '../types';
+import { getActiveTenantId } from '../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-settings';
+const TENANTS_STORAGE_KEY = 'gymmanager-tenants';
 
 export const THEME_PRESETS: Record<
   GymSettings['themePreset'],
@@ -57,6 +59,33 @@ export const settingsService = {
   saveSettings(settings: GymSettings): GymSettings {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     this.applyThemeColor(settings.primaryColor);
+
+    // Sync with active tenant if present
+    const activeTenantId = getActiveTenantId();
+    if (activeTenantId) {
+      try {
+        const rawTenants = localStorage.getItem(TENANTS_STORAGE_KEY);
+        if (rawTenants) {
+          const tenants = JSON.parse(rawTenants) as Tenant[];
+          const idx = tenants.findIndex(t => t.id === activeTenantId);
+          if (idx !== -1) {
+            tenants[idx] = {
+              ...tenants[idx],
+              name: settings.gymName || tenants[idx].name,
+              settings: { ...settings, gymName: settings.gymName || tenants[idx].name },
+            };
+            localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(tenants));
+          }
+        }
+      } catch {
+        // ignore storage sync error
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gymmanager:settings-updated', { detail: settings }));
+    }
+
     return settings;
   },
 

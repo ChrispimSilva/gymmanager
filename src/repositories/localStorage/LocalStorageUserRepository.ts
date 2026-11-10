@@ -1,25 +1,42 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { User, UserRole } from '../../types';
+import { DEFAULT_TENANT_ID, type User, type UserRole } from '../../types';
 import type { IUserRepository } from '../interfaces/IUserRepository';
 import type { IStudentRepository } from '../interfaces/IStudentRepository';
+import { normalizeUserRole, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-users';
 
 const DEFAULT_USERS: User[] = [
   {
+    id: 'usr-superadmin-001',
+    name: 'Master SuperAdmin',
+    email: 'superadmin@gym.com',
+    password: 'super123',
+    role: 'superadmin',
+    active: true,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
     id: 'usr-admin-001',
     name: 'Carlos Admin',
     email: 'admin@gym.com',
     password: 'admin123',
-    role: 'admin' as UserRole,
+    role: 'admin',
+    tenantId: DEFAULT_TENANT_ID,
+    active: true,
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
     id: 'usr-inst-001',
     name: 'Prof. Rafael',
-    email: 'instrutor@gym.com',
-    password: 'instrutor123',
-    role: 'instrutor' as UserRole,
+    email: 'personal@gym.com',
+    password: 'personal123',
+    role: 'personal',
+    tenantId: DEFAULT_TENANT_ID,
+    specialty: 'Hipertrofia & Força',
+    cref: '012345-G/SP',
+    phone: '(11) 98888-1111',
+    active: true,
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
@@ -27,7 +44,9 @@ const DEFAULT_USERS: User[] = [
     name: 'Ana Silva',
     email: 'aluno@gym.com',
     password: 'aluno123',
-    role: 'aluno' as UserRole,
+    role: 'aluno',
+    tenantId: DEFAULT_TENANT_ID,
+    active: true,
     createdAt: '2026-01-01T00:00:00Z',
   },
 ];
@@ -43,6 +62,41 @@ export class LocalStorageUserRepository implements IUserRepository {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(data) as User[];
+      let mutated = false;
+
+      // Migrate legacy 'instrutor' role and missing tenantId
+      const normalized = parsed.map(u => {
+        const normRole = normalizeUserRole(u.role);
+        const needsTenant = normRole !== 'superadmin' && !u.tenantId;
+        const needsActive = u.active === undefined;
+        if (normRole !== u.role || needsTenant || needsActive) {
+          mutated = true;
+          return {
+            ...u,
+            role: normRole,
+            tenantId: normRole === 'superadmin' ? undefined : (u.tenantId || DEFAULT_TENANT_ID),
+            active: u.active ?? true,
+          };
+        }
+        return u;
+      });
+
+      // Ensure superadmin exists even on migrated localStorage
+      if (!normalized.some(u => u.role === 'superadmin')) {
+        normalized.unshift(DEFAULT_USERS[0]);
+        mutated = true;
+      }
+
+      if (mutated) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      }
+    } catch {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
     }
   }
 
@@ -56,8 +110,16 @@ export class LocalStorageUserRepository implements IUserRepository {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
   }
 
-  async getAll(): Promise<User[]> {
-    return this.getStorageData();
+  async getAll(tenantId?: string): Promise<User[]> {
+    const all = this.getStorageData();
+    if (!tenantId) return all;
+    return all.filter(u => u.role !== 'superadmin' && (u.tenantId || DEFAULT_TENANT_ID) === tenantId);
+  }
+
+  async getByRole(role: UserRole, tenantId?: string): Promise<User[]> {
+    const normRole = normalizeUserRole(role);
+    const all = await this.getAll(tenantId);
+    return all.filter(u => u.role === normRole);
   }
 
   async findById(id: string): Promise<User | null> {
@@ -66,13 +128,27 @@ export class LocalStorageUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const user = this.getStorageData().find(u => u.email.toLowerCase() === email.toLowerCase());
-    return user || null;
+    const lower = email.toLowerCase().trim();
+    const users = this.getStorageData();
+    const direct = users.find(u => u.email.toLowerCase() === lower);
+    if (direct) return direct;
+
+    // Backward-compatible alias for legacy instrutor@gym.com demo account
+    if (lower === 'instrutor@gym.com') {
+      return users.find(u => u.email.toLowerCase() === 'personal@gym.com' || u.id === 'usr-inst-001') || null;
+    }
+    return null;
   }
 
   async authenticate(email: string, password: string): Promise<User | null> {
     const user = await this.findByEmail(email);
-    if (user && user.password === password) {
+    if (!user) return null;
+
+    const isLegacyPersonalMatch =
+      user.id === 'usr-inst-001' &&
+      (password === 'personal123' || password === 'instrutor123');
+
+    if (user.password === password || isLegacyPersonalMatch) {
       return user;
     }
     return null;
@@ -83,6 +159,11 @@ export class LocalStorageUserRepository implements IUserRepository {
     email: string;
     password: string;
     role: UserRole;
+    tenantId?: string;
+    phone?: string;
+    specialty?: string;
+    cref?: string;
+    active?: boolean;
   }): Promise<{ success: boolean; user?: User; error?: string }> {
     const existing = await this.findByEmail(data.email);
     if (existing) {
@@ -93,13 +174,22 @@ export class LocalStorageUserRepository implements IUserRepository {
       return { success: false, error: 'A senha deve ter pelo menos 6 caracteres' };
     }
 
+    const normRole = normalizeUserRole(data.role);
+    const assignedTenantId =
+      normRole === 'superadmin' ? undefined : resolveTenantId(data.tenantId);
+
     const users = this.getStorageData();
     const newUser: User = {
       id: uuidv4(),
       name: data.name,
       email: data.email,
       password: data.password,
-      role: data.role,
+      role: normRole,
+      tenantId: assignedTenantId,
+      phone: data.phone,
+      specialty: data.specialty,
+      cref: data.cref,
+      active: data.active ?? true,
       createdAt: new Date().toISOString(),
     };
 
@@ -107,29 +197,34 @@ export class LocalStorageUserRepository implements IUserRepository {
     this.saveStorageData(users);
 
     // Auto-create/link Student record when registering as an 'aluno'
-    if (data.role === 'aluno' && this.studentRepo) {
+    if (normRole === 'aluno' && this.studentRepo) {
       const existingStudent = await this.studentRepo.getByUserId(newUser.id);
       if (!existingStudent) {
-        // Check if a student with matching email already exists
         const allStudents = await this.studentRepo.getAll();
         const studentByEmail = allStudents.find(
-          s => s.email.toLowerCase() === newUser.email.toLowerCase()
+          s =>
+            s.email.toLowerCase() === newUser.email.toLowerCase() &&
+            (!assignedTenantId || (s.tenantId || DEFAULT_TENANT_ID) === assignedTenantId)
         );
 
         if (studentByEmail) {
-          await this.studentRepo.update(studentByEmail.id, { userId: newUser.id });
+          await this.studentRepo.update(studentByEmail.id, {
+            userId: newUser.id,
+            tenantId: assignedTenantId,
+          });
         } else {
           await this.studentRepo.create({
             name: newUser.name,
             email: newUser.email,
-            phone: '',
+            phone: data.phone || '',
             birthDate: '',
             weight: 70,
             height: 170,
             goal: 'Condicionamento',
-            active: true,
+            active: newUser.active ?? true,
             photo: '',
             userId: newUser.id,
+            tenantId: assignedTenantId,
           });
         }
       }
@@ -157,10 +252,25 @@ export class LocalStorageUserRepository implements IUserRepository {
           ...(data.name ? { name: data.name } : {}),
           ...(data.email ? { email: data.email } : {}),
           ...(data.avatar ? { photo: data.avatar } : {}),
+          ...(data.active !== undefined ? { active: data.active } : {}),
         });
       }
     }
 
     return users[index];
+  }
+
+  async toggleActive(id: string): Promise<User | null> {
+    const user = await this.findById(id);
+    if (!user) return null;
+    return this.update(id, { active: !(user.active ?? true) });
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const users = this.getStorageData();
+    const filtered = users.filter(u => u.id !== id);
+    if (filtered.length === users.length) return false;
+    this.saveStorageData(filtered);
+    return true;
   }
 }

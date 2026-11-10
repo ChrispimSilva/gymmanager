@@ -43,7 +43,7 @@ export default function ExercisesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [customModalOpen, setCustomModalOpen] = useState(false);
 
-  const canCreateExercise = user?.role === 'admin' || user?.role === 'instrutor';
+  const canCreateExercise = user?.role === 'admin' || user?.role === 'personal';
 
   return (
     <div className="space-y-6 animate-fade-in">

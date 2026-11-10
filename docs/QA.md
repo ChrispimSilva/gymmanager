@@ -50,9 +50,10 @@ Ao abrir a aplicação pela primeira vez, o banco de dados local (`localStorage`
 
 | Perfil | E-mail | Senha | Permissões / Acesso |
 |---|---|---|---|
-| **Administrador** | `admin@gym.com` | `admin123` | Acesso total (Alunos, Treinos, Exercícios, Evolução, Histórico, Backup) |
-| **Instrutor** | `instrutor@gym.com` | `instrutor123` | Gestão de Alunos, Treinos, Exercícios Customizados, Evolução, Histórico |
-| **Aluno** | `aluno@gym.com` | `aluno123` | Visão personalizada (Meus Treinos, Executar Treino, Minha Evolução) |
+| **SuperAdmin** | `superadmin@gym.com` | `super123` | Dono da Plataforma SaaS (Gestão de Academias/Tenants, Contas Admin e Assentos) |
+| **Admin (Academia)** | `admin@gym.com` | `admin123` | Dono do Tenant: Gestão de Equipe (Personais), Alunos, Treinos, Aparelhos, Configurações e Backup |
+| **Personal** | `personal@gym.com` | `personal123` | Funcionário do Tenant: Gestão de Alunos, Treinos, Aparelhos, Exercícios Customizados e Evolução |
+| **Aluno** | `aluno@gym.com` | `aluno123` | Cliente do Tenant: Visão personalizada (Meus Treinos, Executar Treino, Minha Evolução e Histórico) |
 
 > 💡 **Dica de Teste:** Você também pode utilizar o botão **"Criar conta"** na tela de login para registrar novos usuários com qualquer perfil.
 

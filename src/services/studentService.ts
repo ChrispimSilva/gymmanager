@@ -2,8 +2,8 @@ import type { Student } from '../types';
 import { studentRepository } from '../repositories';
 
 export const studentService = {
-  async getAll(): Promise<Student[]> {
-    return studentRepository.getAll();
+  async getAll(tenantId?: string): Promise<Student[]> {
+    return studentRepository.getAll(tenantId);
   },
 
   async getById(id: string): Promise<Student | null> {
@@ -30,15 +30,15 @@ export const studentService = {
     return studentRepository.toggleActive(id);
   },
 
-  async search(query: string): Promise<Student[]> {
-    return studentRepository.search(query);
+  async search(query: string, tenantId?: string): Promise<Student[]> {
+    return studentRepository.search(query, tenantId);
   },
 
-  async getActiveCount(): Promise<number> {
-    return studentRepository.getActiveCount();
+  async getActiveCount(tenantId?: string): Promise<number> {
+    return studentRepository.getActiveCount(tenantId);
   },
 
-  async getTotalCount(): Promise<number> {
-    return studentRepository.getTotalCount();
+  async getTotalCount(tenantId?: string): Promise<number> {
+    return studentRepository.getTotalCount(tenantId);
   },
 };

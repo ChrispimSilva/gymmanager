@@ -40,8 +40,9 @@
 
 | Funcionalidade | Descrição |
 |---|---|
-| 🔐 **Autenticação** | Login e cadastro com controle de acesso por perfil (Admin, Instrutor, Aluno) |
-| 👥 **Gestão de Alunos** | Cadastro completo com dados pessoais, medidas corporais e status |
+| 🔐 **Autenticação Multi-Tenant** | Login segmentado por perfil (SuperAdmin, Admin/Academia, Personal, Aluno) e isolamento por Tenant |
+| 🏢 **Gestão de Academias & Assentos** | Painel SuperAdmin para administrar academias (Tenants), contas Admin e ocupação de assentos (Seats) |
+| 👥 **Gestão de Equipe & Alunos** | Cadastro de Personais e Alunos com controle de assentos ativos, medidas corporais e status |
 | 🏋️ **Montagem de Treinos** | Criação de fichas de treino vinculadas a alunos com séries, repetições e carga |
 | 💪 **Catálogo de Exercícios** | +200 exercícios com GIFs animados, filtro por grupo muscular e equipamento |
 | 📊 **Evolução Física** | Acompanhamento de peso, % gordura, massa muscular e IMC com gráficos |
@@ -49,13 +50,14 @@
 | 🌙 **Tema Escuro/Claro** | Alternância de tema com persistência |
 | 📜 **Histórico de Atividades** | Log de ações realizadas no sistema |
 
-### Perfis de Acesso
+### Perfis de Acesso (Multi-Tenant)
 
-| Perfil | Permissões |
-|---|---|
-| **Admin** | Acesso total: alunos, treinos, exercícios, evolução, histórico |
-| **Instrutor** | Gerencia treinos e alunos, acessa exercícios e histórico |
-| **Aluno** | Visualiza seus treinos, exercícios e evolução pessoal |
+| Perfil | Escopo | Permissões |
+|---|---|---|
+| **SuperAdmin** | Plataforma (SaaS) | Dono da plataforma; gerencia Academias (Tenants), usuários Admin e limites/uso de assentos |
+| **Admin** | Tenant (Academia) | Dono da academia; gerencia Personais, Alunos, treinos, aparelhos, identidade visual e assentos do tenant |
+| **Personal** | Tenant (Academia) | Funcionário da academia; gerencia treinos, alunos, aparelhos, exercícios e evolução no seu tenant |
+| **Aluno** | Tenant (Academia) | Visualiza e executa seus treinos, consulta exercícios, evolução pessoal e histórico no seu tenant |
 
 ---
 <h1><a href="https://youtu.be/SOKWffpj9ko">Demonstração</a></h1>
@@ -113,13 +115,14 @@ O servidor será iniciado em **http://localhost:5173** e ficará acessível tamb
 
 ## 🔑 Usuários Padrão (Demo)
 
-O sistema inclui dados de exemplo pré-carregados via `localStorage`. Na primeira execução, três usuários ficam disponíveis:
+O sistema inclui dados de exemplo pré-carregados via `localStorage`. Na primeira execução, quatro usuários ficam disponíveis:
 
-| Perfil | E-mail | Senha |
-|---|---|---|
-| Admin | `admin@gym.com` | `admin123` |
-| Instrutor | `instrutor@gym.com` | `instrutor123` |
-| Aluno | `aluno@gym.com` | `aluno123` |
+| Perfil | E-mail | Senha | Escopo |
+|---|---|---|---|
+| SuperAdmin | `superadmin@gym.com` | `super123` | Dono da Plataforma (Gerencia Academias / Admins) |
+| Admin | `admin@gym.com` | `admin123` | Dono da Academia (`tenant-default`) |
+| Personal | `personal@gym.com` | `personal123` | Personal da Academia (`tenant-default`) |
+| Aluno | `aluno@gym.com` | `aluno123` | Aluno da Academia (`tenant-default`) |
 
 > **Nota:** Todos os dados são armazenados no `localStorage` do navegador. Limpar os dados do navegador restaurará o estado inicial da aplicação.
 

@@ -4,6 +4,7 @@ import type { IStudentRepository } from '../interfaces/IStudentRepository';
 import type { IWorkoutRepository } from '../interfaces/IWorkoutRepository';
 import type { IProgressRepository } from '../interfaces/IProgressRepository';
 import type { IWorkoutSessionRepository } from '../interfaces/IWorkoutSessionRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-students';
 
@@ -31,8 +32,8 @@ export class LocalStorageStudentRepository implements IStudentRepository {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
   }
 
-  async getAll(): Promise<Student[]> {
-    return this.getStorageData();
+  async getAll(tenantId?: string): Promise<Student[]> {
+    return this.getStorageData().filter(s => matchesActiveTenant(s.tenantId, tenantId));
   }
 
   async getById(id: string): Promise<Student | null> {
@@ -49,6 +50,7 @@ export class LocalStorageStudentRepository implements IStudentRepository {
     const students = this.getStorageData();
     const newStudent: Student = {
       ...student,
+      tenantId: resolveTenantId(student.tenantId),
       id: uuidv4(),
       createdAt: new Date().toISOString(),
     };
@@ -98,20 +100,23 @@ export class LocalStorageStudentRepository implements IStudentRepository {
     return students[index];
   }
 
-  async search(query: string): Promise<Student[]> {
+  async search(query: string, tenantId?: string): Promise<Student[]> {
     const lower = query.toLowerCase();
-    return this.getStorageData().filter(s =>
+    const all = await this.getAll(tenantId);
+    return all.filter(s =>
       s.name.toLowerCase().includes(lower) ||
       s.email.toLowerCase().includes(lower) ||
       s.phone.includes(query)
     );
   }
 
-  async getActiveCount(): Promise<number> {
-    return this.getStorageData().filter(s => s.active).length;
+  async getActiveCount(tenantId?: string): Promise<number> {
+    const all = await this.getAll(tenantId);
+    return all.filter(s => s.active).length;
   }
 
-  async getTotalCount(): Promise<number> {
-    return this.getStorageData().length;
+  async getTotalCount(tenantId?: string): Promise<number> {
+    const all = await this.getAll(tenantId);
+    return all.length;
   }
 }

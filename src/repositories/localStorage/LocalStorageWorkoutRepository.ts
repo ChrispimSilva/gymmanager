@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Workout, WorkoutExercise } from '../../types';
 import type { IWorkoutRepository } from '../interfaces/IWorkoutRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-workouts';
 
@@ -15,7 +16,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   }
 
   async getAll(): Promise<Workout[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(w => matchesActiveTenant(w.tenantId));
   }
 
   async getById(id: string): Promise<Workout | null> {
@@ -34,7 +35,9 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   async getCommunityWorkouts(): Promise<Workout[]> {
     // Community workouts are either explicitly flagged isCommunity === true,
     // or unassigned templates (no studentId), or created by instructors/admin
-    return this.getStorageData().filter(w => w.isCommunity !== false);
+    return this.getStorageData().filter(
+      w => matchesActiveTenant(w.tenantId) && w.isCommunity !== false
+    );
   }
 
   async cloneWorkout(
@@ -48,6 +51,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
     const cloned: Workout = {
       ...original,
       id: uuidv4(),
+      tenantId: resolveTenantId(original.tenantId),
       name: newName || `${original.name} (Cópia)`,
       studentId: targetStudentId,
       isCommunity: !targetStudentId,
@@ -65,6 +69,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
     const workouts = this.getStorageData();
     const newWorkout: Workout = {
       ...workout,
+      tenantId: resolveTenantId(workout.tenantId),
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -111,6 +116,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   }
 
   async getTotalCount(): Promise<number> {
-    return this.getStorageData().length;
+    const all = await this.getAll();
+    return all.length;
   }
 }

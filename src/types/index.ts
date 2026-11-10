@@ -2,7 +2,44 @@
 // GymManager — Type Definitions
 // ============================================================
 
-export type UserRole = 'admin' | 'instrutor' | 'aluno';
+export type UserRole = 'superadmin' | 'admin' | 'personal' | 'aluno';
+
+export const DEFAULT_TENANT_ID = 'tenant-default';
+
+export type BillingStatus = 'free' | 'trial' | 'active' | 'past_due' | 'suspended';
+
+export interface TenantLicensing {
+  billingModel: 'per_seat';
+  isPaid: boolean;
+  pricePerSeatCents: number;
+  maxSeats: number | null;
+  billingStatus: BillingStatus;
+}
+
+export interface Tenant {
+  id: string;
+  slug: string;
+  name: string;
+  ownerUserId: string;
+  document?: string;
+  email: string;
+  phone?: string;
+  active: boolean;
+  settings: GymSettings;
+  licensing: TenantLicensing;
+  createdAt: string;
+}
+
+export interface TenantSeatUsage {
+  tenantId: string;
+  activePersonals: number;
+  totalPersonals: number;
+  activeStudents: number;
+  totalStudents: number;
+  usedSeats: number; // activePersonals + activeStudents
+  maxSeats: number | null;
+  estimatedMonthlyCents: number;
+}
 
 export interface User {
   id: string;
@@ -10,6 +47,11 @@ export interface User {
   email: string;
   password: string;
   role: UserRole;
+  tenantId?: string;
+  active?: boolean;
+  phone?: string;
+  specialty?: string;
+  cref?: string;
   avatar?: string;
   createdAt: string;
 }
@@ -17,6 +59,7 @@ export interface User {
 export interface Student {
   id: string;
   userId?: string;
+  tenantId?: string;
   name: string;
   email: string;
   phone: string;
@@ -45,6 +88,7 @@ export interface NormalizedExercise extends Exercise {
 
 export interface CustomExercise extends Exercise {
   id: string;
+  tenantId?: string;
   category: string;
   isCustom: true;
   createdAt: string;
@@ -52,6 +96,7 @@ export interface CustomExercise extends Exercise {
 
 export interface EquipmentItem {
   id: string;
+  tenantId?: string;
   name: string;
   brand?: string;
   model?: string;
@@ -72,6 +117,7 @@ export interface WorkoutExercise {
 
 export interface Workout {
   id: string;
+  tenantId?: string;
   studentId?: string;
   instructorId: string;
   name: string;
@@ -119,6 +165,7 @@ export interface CompletedExercise {
 
 export interface WorkoutSession {
   id: string;
+  tenantId?: string;
   workoutId: string;
   workoutName: string;
   studentId: string;
@@ -134,6 +181,7 @@ export interface WorkoutSession {
 
 export interface PhysicalProgress {
   id: string;
+  tenantId?: string;
   studentId: string;
   weight: number;
   bodyFat?: number;
@@ -144,6 +192,7 @@ export interface PhysicalProgress {
 
 export interface ActivityLog {
   id: string;
+  tenantId?: string;
   userId: string;
   type:
     | 'workout_created'
@@ -153,7 +202,9 @@ export interface ActivityLog {
     | 'progress_recorded'
     | 'workout_updated'
     | 'exercise_created'
-    | 'equipment_added';
+    | 'equipment_added'
+    | 'personal_added'
+    | 'tenant_created';
   description: string;
   timestamp: string;
   relatedId?: string;

@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, Plus, UserCheck, UserX, X, Mail, Phone, Target, Ruler, Weight } from 'lucide-react';
+import { Search, Plus, UserCheck, UserX, X, Mail, Phone, Target, Ruler, Weight, Lock } from 'lucide-react';
 import { studentService } from '../services/studentService';
+import { userService } from '../services/userService';
+import { tenantService } from '../services/tenantService';
 import { activityService } from '../services/activityService';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import type { Student } from '../types';
+import { DEFAULT_TENANT_ID, type Student } from '../types';
 
 export default function StudentsPage() {
   const { user } = useAuth();
@@ -106,8 +108,19 @@ export default function StudentsPage() {
 
   const handleToggleActive = async (student: Student) => {
     try {
+      if (!student.active) {
+        const tenantId = user?.tenantId || DEFAULT_TENANT_ID;
+        const seatCheck = await tenantService.canAddSeat(tenantId);
+        if (!seatCheck.allowed) {
+          toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+          return;
+        }
+      }
       const updated = await studentService.toggleActive(student.id);
       if (updated) {
+        if (updated.userId) {
+          await userService.update(updated.userId, { active: updated.active });
+        }
         toast.info(
           `Aluno ${updated.name} está agora ${updated.active ? 'ativo' : 'inativo'}.`,
           'Status atualizado'
@@ -358,6 +371,7 @@ function StudentFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState({
     name: student?.name || '',
@@ -369,6 +383,7 @@ function StudentFormModal({
     goal: student?.goal || 'Hipertrofia',
     active: student?.active ?? true,
   });
+  const [loginPassword, setLoginPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -383,13 +398,58 @@ function StudentFormModal({
     e.preventDefault();
     setSaving(true);
     try {
+      const tenantId = user?.tenantId || DEFAULT_TENANT_ID;
       if (student) {
         await studentService.update(student.id, form);
+        if (loginPassword.trim().length >= 6) {
+          if (student.userId) {
+            await userService.update(student.userId, {
+              name: form.name,
+              email: form.email,
+              password: loginPassword.trim(),
+            });
+          } else {
+            const reg = await userService.register({
+              name: form.name,
+              email: form.email,
+              password: loginPassword.trim(),
+              role: 'aluno',
+              tenantId,
+              phone: form.phone,
+              active: form.active,
+            });
+            if (reg.success && reg.user) {
+              await studentService.update(student.id, { userId: reg.user.id });
+            }
+          }
+        }
         toast.success(`Dados do aluno ${form.name} atualizados com sucesso!`, 'Aluno atualizado');
       } else {
-        await studentService.create({ ...form, photo: '' });
+        if (form.active) {
+          const seatCheck = await tenantService.canAddSeat(tenantId);
+          if (!seatCheck.allowed) {
+            toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+            setSaving(false);
+            return;
+          }
+        }
+        const created = await studentService.create({ ...form, photo: '', tenantId });
+        if (loginPassword.trim().length >= 6) {
+          const reg = await userService.register({
+            name: form.name,
+            email: form.email,
+            password: loginPassword.trim(),
+            role: 'aluno',
+            tenantId,
+            phone: form.phone,
+            active: form.active,
+          });
+          if (reg.success && reg.user) {
+            await studentService.update(created.id, { userId: reg.user.id });
+          }
+        }
         await activityService.log({
-          userId: 'usr-inst-001',
+          userId: user?.id || 'usr-inst-001',
           type: 'student_added',
           description: `Novo aluno cadastrado: ${form.name}`,
         });
@@ -515,6 +575,22 @@ function StudentFormModal({
             >
               {goals.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <Lock className="w-3 h-3 inline mr-1" />
+              Senha de Login do Aluno <span className="text-[10px] opacity-70">(opcional, mín. 6 chars para liberar acesso)</span>
+            </label>
+            <input
+              type="password"
+              minLength={6}
+              value={loginPassword}
+              onChange={e => setLoginPassword(e.target.value)}
+              placeholder={student?.userId ? 'Deixe em branco para manter a senha atual' : 'Defina uma senha para o aluno entrar no app'}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+              style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+            />
           </div>
 
           <div className="flex gap-3 pt-4">

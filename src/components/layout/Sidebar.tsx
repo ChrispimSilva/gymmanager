@@ -11,20 +11,24 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Building2,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useState } from 'react';
 
 const menuItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'instrutor', 'aluno'] },
-  { path: '/alunos', label: 'Alunos', icon: Users, roles: ['admin', 'instrutor'] },
-  { path: '/treinos', label: 'Treinos', icon: Dumbbell, roles: ['admin', 'instrutor'] },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['superadmin', 'admin', 'personal', 'aluno'] },
+  { path: '/academias', label: 'Academias (Tenants)', icon: Building2, roles: ['superadmin'] },
+  { path: '/personais', label: 'Equipe (Personais)', icon: Award, roles: ['admin'] },
+  { path: '/alunos', label: 'Alunos', icon: Users, roles: ['admin', 'personal'] },
+  { path: '/treinos', label: 'Treinos', icon: Dumbbell, roles: ['admin', 'personal'] },
   { path: '/meus-treinos', label: 'Meus Treinos', icon: Dumbbell, roles: ['aluno'] },
-  { path: '/aparelhos', label: 'Aparelhos', icon: Layers, roles: ['admin', 'instrutor'] },
-  { path: '/exercicios', label: 'Exercícios', icon: BookOpen, roles: ['admin', 'instrutor', 'aluno'] },
-  { path: '/evolucao', label: 'Evolução', icon: TrendingUp, roles: ['admin', 'instrutor', 'aluno'] },
-  { path: '/historico', label: 'Histórico', icon: History, roles: ['admin', 'instrutor', 'aluno'] },
+  { path: '/aparelhos', label: 'Aparelhos', icon: Layers, roles: ['admin', 'personal'] },
+  { path: '/exercicios', label: 'Exercícios', icon: BookOpen, roles: ['admin', 'personal', 'aluno'] },
+  { path: '/evolucao', label: 'Evolução', icon: TrendingUp, roles: ['admin', 'personal', 'aluno'] },
+  { path: '/historico', label: 'Histórico', icon: History, roles: ['admin', 'personal', 'aluno'] },
   { path: '/configuracoes', label: 'Configurações', icon: Settings, roles: ['admin'] },
 ];
 
@@ -35,6 +39,13 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const visibleItems = menuItems.filter(item => item.roles.includes(user?.role || ''));
+
+  const roleLabels: Record<string, string> = {
+    superadmin: 'SuperAdmin • Plataforma',
+    admin: 'Admin • Academia',
+    personal: 'Personal Trainer',
+    aluno: 'Aluno',
+  };
 
   return (
     <aside
@@ -65,8 +76,12 @@ export default function Sidebar() {
 
         {!collapsed && (
           <div className="animate-fade-in min-w-0">
-            <h1 className="text-base font-bold text-white truncate">{settings.gymName}</h1>
-            <p className="text-[11px] text-slate-400">Gestão & Treinos</p>
+            <h1 className="text-base font-bold text-white truncate">
+              {user?.role === 'superadmin' ? 'GymManager SaaS' : settings.gymName}
+            </h1>
+            <p className="text-[11px] text-slate-400">
+              {user?.role === 'superadmin' ? 'Gestão Multi-Tenant' : 'Gestão & Treinos'}
+            </p>
           </div>
         )}
       </div>
@@ -112,7 +127,7 @@ export default function Sidebar() {
         {!collapsed && user && (
           <div className="px-3 py-2 mb-2">
             <p className="text-sm font-medium text-white truncate">{user.name}</p>
-            <p className="text-xs text-slate-400 capitalize">{user.role}</p>
+            <p className="text-xs text-slate-400">{roleLabels[user.role] || user.role}</p>
           </div>
         )}
         <button

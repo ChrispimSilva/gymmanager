@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { WorkoutSession } from '../../types';
 import type { IWorkoutSessionRepository } from '../interfaces/IWorkoutSessionRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-sessions';
 
@@ -15,9 +16,9 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
   }
 
   async getAll(): Promise<WorkoutSession[]> {
-    return this.getStorageData().sort(
-      (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime()
-    );
+    return this.getStorageData()
+      .filter(s => matchesActiveTenant(s.tenantId))
+      .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
   }
 
   async getById(id: string): Promise<WorkoutSession | null> {
@@ -41,6 +42,7 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
     const sessions = this.getStorageData();
     const newSession: WorkoutSession = {
       ...session,
+      tenantId: resolveTenantId(session.tenantId),
       id: uuidv4(),
     };
     sessions.push(newSession);

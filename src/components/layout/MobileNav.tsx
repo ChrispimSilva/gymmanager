@@ -8,6 +8,8 @@ import {
   History,
   Layers,
   Settings,
+  Building2,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -15,10 +17,16 @@ export default function MobileNav() {
   const location = useLocation();
   const { user } = useAuth();
 
+  const isSuperAdmin = user?.role === 'superadmin';
   const isAluno = user?.role === 'aluno';
   const isAdmin = user?.role === 'admin';
 
-  const navItems = isAluno
+  const navItems = isSuperAdmin
+    ? [
+        { path: '/dashboard', label: 'SaaS', icon: LayoutDashboard },
+        { path: '/academias', label: 'Academias', icon: Building2 },
+      ]
+    : isAluno
     ? [
         { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
         { path: '/meus-treinos', label: 'Treinos', icon: Dumbbell },
@@ -29,9 +37,9 @@ export default function MobileNav() {
     : isAdmin
     ? [
         { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
+        { path: '/personais', label: 'Equipe', icon: Award },
         { path: '/alunos', label: 'Alunos', icon: Users },
         { path: '/treinos', label: 'Treinos', icon: Dumbbell },
-        { path: '/aparelhos', label: 'Aparelhos', icon: Layers },
         { path: '/configuracoes', label: 'Config', icon: Settings },
       ]
     : [

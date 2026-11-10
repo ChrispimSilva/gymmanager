@@ -23,8 +23,10 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const roleLabels: Record<string, string> = {
-    admin: 'Administrador',
-    instrutor: 'Instrutor',
+    superadmin: 'SuperAdmin (Plataforma)',
+    admin: 'Admin (Academia)',
+    personal: 'Personal',
+    instrutor: 'Personal',
     aluno: 'Aluno',
   };
 
@@ -331,7 +333,7 @@ export default function Header() {
                     Meu Perfil & Avatar
                   </button>
 
-                  {user?.role === 'admin' && (
+                  {(user?.role === 'admin' || user?.role === 'superadmin') && (
                     <button
                       onClick={() => {
                         setShowUserMenu(false);

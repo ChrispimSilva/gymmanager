@@ -74,17 +74,23 @@ Redireciona para
 - **`AuthContext.tsx`** → Ao logar com sucesso, salva o objeto `User` completo no state do React e no `localStorage` (chave `gymmanager-auth`).
 - **`App.tsx`** → O componente `ProtectedRoute` verifica `isAuthenticated` para proteger rotas. O `RoleGuard` restringe acesso por perfil (`admin`, `instrutor`, `aluno`).
 
-### Controle de Acesso por Perfil
+### Controle de Acesso por Perfil e Escopo Multi-Tenant
 
-| Rota | Admin | Instrutor | Aluno |
-|---|:---:|:---:|:---:|
-| `/dashboard` | ✅ | ✅ | ✅ |
-| `/alunos` | ✅ | ✅ | ✅ (somente seu perfil) |
-| `/treinos` | ✅ | ✅ | ❌ |
-| `/meus-treinos` | ✅ | ✅ | ✅ |
-| `/exercicios` | ✅ | ✅ | ✅ |
-| `/evolucao` | ✅ | ✅ | ✅ |
-| `/historico` | ✅ | ✅ | ❌ |
+O sistema opera em arquitetura **Multi-Tenant** preparada para licenciamento **por assento (per-seat)** cobrado da academia (atualmente em modo gratuito `isPaid: false`, onde cada `personal` ativo e cada `aluno` ativo consomem 1 assento da academia).
+
+| Rota | SuperAdmin (Plataforma) | Admin (Tenant) | Personal (Tenant) | Aluno (Tenant) |
+|---|:---:|:---:|:---:|:---:|
+| `/dashboard` | ✅ (Visão SaaS) | ✅ | ✅ | ✅ |
+| `/academias` | ✅ | ❌ | ❌ | ❌ |
+| `/personais` | ❌ | ✅ | ❌ | ❌ |
+| `/alunos` | ❌ | ✅ | ✅ | ❌ |
+| `/treinos` | ❌ | ✅ | ✅ | ❌ |
+| `/meus-treinos` | ❌ | ❌ | ❌ | ✅ |
+| `/aparelhos` | ❌ | ✅ | ✅ | ❌ |
+| `/exercicios` | ❌ | ✅ | ✅ | ✅ |
+| `/evolucao` | ❌ | ✅ | ✅ | ✅ |
+| `/historico` | ❌ | ✅ | ✅ | ✅ |
+| `/configuracoes` | ❌ | ✅ | ❌ | ❌ |
 
 ### ⚠️ Limitações de Segurança
 
