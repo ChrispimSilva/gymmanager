@@ -1,8 +1,19 @@
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_TENANT_ID, type Tenant } from '../../types';
+import { DEFAULT_TENANT_ID, type GymSettings, type Tenant } from '../../types';
 import type { ITenantRepository } from '../interfaces/ITenantRepository';
 
 const STORAGE_KEY = 'gymmanager-tenants';
+const SETTINGS_STORAGE_KEY = 'gymmanager-settings';
+const VALID_THEME_PRESETS: ReadonlySet<GymSettings['themePreset']> = new Set([
+  'emerald',
+  'indigo',
+  'blue',
+  'crimson',
+  'amber',
+  'pink',
+  'cyan',
+  'custom',
+]);
 
 const DEFAULT_TENANTS: Tenant[] = [
   {
@@ -31,11 +42,63 @@ const DEFAULT_TENANTS: Tenant[] = [
   },
 ];
 
+function buildInitialDefaultTenants(): Tenant[] {
+  const base = DEFAULT_TENANTS[0];
+  let mergedSettings: GymSettings = { ...base.settings };
+  let tenantName = base.name;
+
+  const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+  if (rawSettings) {
+    try {
+      const parsed = JSON.parse(rawSettings) as Record<string, unknown> | null;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const gymName =
+          typeof parsed.gymName === 'string' && parsed.gymName.trim()
+            ? parsed.gymName.trim()
+            : base.settings.gymName;
+        const logoUrl =
+          typeof parsed.logoUrl === 'string' ? parsed.logoUrl : base.settings.logoUrl;
+        const primaryColor =
+          typeof parsed.primaryColor === 'string' && parsed.primaryColor.trim()
+            ? parsed.primaryColor.trim()
+            : base.settings.primaryColor;
+        const themePreset =
+          typeof parsed.themePreset === 'string' &&
+          VALID_THEME_PRESETS.has(parsed.themePreset as GymSettings['themePreset'])
+            ? (parsed.themePreset as GymSettings['themePreset'])
+            : base.settings.themePreset;
+
+        mergedSettings = {
+          gymName,
+          logoUrl,
+          primaryColor,
+          themePreset,
+        };
+
+        if (gymName !== base.settings.gymName) {
+          tenantName = gymName;
+        }
+      }
+    } catch {
+      // Fall back to default branding if existing settings cannot be parsed
+    }
+  }
+
+  return [
+    {
+      ...base,
+      name: tenantName,
+      settings: mergedSettings,
+      licensing: { ...base.licensing },
+    },
+  ];
+}
+
 export class LocalStorageTenantRepository implements ITenantRepository {
   private ensureDefaults(): void {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_TENANTS));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildInitialDefaultTenants()));
     }
   }
 

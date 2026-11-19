@@ -252,4 +252,51 @@ describe('Multi-Tenant & Seat Licensing Service', () => {
     const reactivated = await studentService.update(inactiveStudent.id, { active: true });
     expect(reactivated?.active).toBe(true);
   });
+
+  it('should preserve existing gymmanager-settings branding when initializing the default tenant on upgrade', async () => {
+    localStorage.setItem(
+      'gymmanager-settings',
+      JSON.stringify({
+        gymName: 'Academia Titã',
+        logoUrl: 'https://cdn.example.com/tita.png',
+        primaryColor: '#6366f1',
+        themePreset: 'indigo',
+      })
+    );
+
+    const defaultTenant = await tenantService.getById(DEFAULT_TENANT_ID);
+    expect(defaultTenant).not.toBeNull();
+    expect(defaultTenant?.name).toBe('Academia Titã');
+    expect(defaultTenant?.settings).toEqual({
+      gymName: 'Academia Titã',
+      logoUrl: 'https://cdn.example.com/tita.png',
+      primaryColor: '#6366f1',
+      themePreset: 'indigo',
+    });
+
+    // When only color/theme were customized while gymName remained default, preserve branding & default tenant name
+    localStorage.clear();
+    localStorage.setItem(
+      'gymmanager-settings',
+      JSON.stringify({
+        gymName: 'GymManager',
+        logoUrl: '',
+        primaryColor: '#ef4444',
+        themePreset: 'crimson',
+      })
+    );
+
+    const colorOnlyTenant = await tenantService.getById(DEFAULT_TENANT_ID);
+    expect(colorOnlyTenant?.name).toBe('GymManager Academia');
+    expect(colorOnlyTenant?.settings.primaryColor).toBe('#ef4444');
+    expect(colorOnlyTenant?.settings.themePreset).toBe('crimson');
+
+    // Invalid JSON in gymmanager-settings falls back safely to default branding
+    localStorage.clear();
+    localStorage.setItem('gymmanager-settings', '{corrupted');
+
+    const tenants = await tenantService.getAll();
+    expect(tenants[0].name).toBe('GymManager Academia');
+    expect(tenants[0].settings.themePreset).toBe('emerald');
+  });
 });

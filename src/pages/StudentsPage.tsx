@@ -399,72 +399,137 @@ function StudentFormModal({
     setSaving(true);
     try {
       const tenantId = student?.tenantId || user?.tenantId || DEFAULT_TENANT_ID;
+      const trimmedPassword = loginPassword.trim();
+      const normalizedForm = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+      };
+
+      if (trimmedPassword.length > 0 && trimmedPassword.length < 6) {
+        toast.error('A senha de acesso deve ter pelo menos 6 caracteres.', 'Senha inválida');
+        return;
+      }
+
       if (student) {
-        if (!student.active && form.active) {
+        if (!student.active && normalizedForm.active) {
           const seatCheck = await tenantService.canAddSeat(tenantId);
           if (!seatCheck.allowed) {
             toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
-            setSaving(false);
             return;
           }
         }
-        await studentService.update(student.id, form);
-        if (student.userId && student.active !== form.active) {
-          await userService.update(student.userId, { active: form.active });
-        }
-        if (loginPassword.trim().length >= 6) {
+
+        if (trimmedPassword.length >= 6) {
+          const existingAccount = await userService.findByEmail(normalizedForm.email);
           if (student.userId) {
-            await userService.update(student.userId, {
-              name: form.name,
-              email: form.email,
-              password: loginPassword.trim(),
+            if (existingAccount && existingAccount.id !== student.userId) {
+              toast.error('Este email já está cadastrado', 'Erro ao atualizar acesso');
+              return;
+            }
+          } else if (existingAccount) {
+            toast.error('Este email já está cadastrado', 'Erro ao liberar acesso');
+            return;
+          }
+        }
+
+        await studentService.update(student.id, normalizedForm);
+        if (student.userId && student.active !== normalizedForm.active) {
+          await userService.update(student.userId, { active: normalizedForm.active });
+        }
+        if (trimmedPassword.length >= 6) {
+          if (student.userId) {
+            const updatedUser = await userService.update(student.userId, {
+              name: normalizedForm.name,
+              email: normalizedForm.email,
+              password: trimmedPassword,
             });
+            if (!updatedUser) {
+              toast.error(
+                'Não foi possível atualizar o acesso de login do aluno.',
+                'Erro ao atualizar acesso'
+              );
+              return;
+            }
           } else {
             const reg = await userService.register({
-              name: form.name,
-              email: form.email,
-              password: loginPassword.trim(),
+              name: normalizedForm.name,
+              email: normalizedForm.email,
+              password: trimmedPassword,
               role: 'aluno',
               tenantId,
-              phone: form.phone,
-              active: form.active,
+              phone: normalizedForm.phone,
+              active: normalizedForm.active,
             });
-            if (reg.success && reg.user) {
-              await studentService.update(student.id, { userId: reg.user.id });
+            if (!reg.success || !reg.user) {
+              await studentService.update(student.id, {
+                name: student.name,
+                email: student.email,
+                phone: student.phone,
+                birthDate: student.birthDate,
+                weight: student.weight,
+                height: student.height,
+                goal: student.goal,
+                active: student.active,
+              });
+              toast.error(
+                reg.error || 'Não foi possível criar o acesso de login do aluno.',
+                'Erro ao liberar acesso'
+              );
+              return;
             }
+            await studentService.update(student.id, { userId: reg.user.id });
           }
         }
-        toast.success(`Dados do aluno ${form.name} atualizados com sucesso!`, 'Aluno atualizado');
+        toast.success(
+          `Dados do aluno ${normalizedForm.name} atualizados com sucesso!`,
+          'Aluno atualizado'
+        );
       } else {
-        if (form.active) {
+        if (normalizedForm.active) {
           const seatCheck = await tenantService.canAddSeat(tenantId);
           if (!seatCheck.allowed) {
             toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
-            setSaving(false);
             return;
           }
         }
-        const created = await studentService.create({ ...form, photo: '', tenantId });
-        if (loginPassword.trim().length >= 6) {
+
+        if (trimmedPassword.length >= 6) {
+          const existingAccount = await userService.findByEmail(normalizedForm.email);
+          if (existingAccount) {
+            toast.error('Este email já está cadastrado', 'Erro ao liberar acesso');
+            return;
+          }
+        }
+
+        const created = await studentService.create({ ...normalizedForm, photo: '', tenantId });
+        if (trimmedPassword.length >= 6) {
           const reg = await userService.register({
-            name: form.name,
-            email: form.email,
-            password: loginPassword.trim(),
+            name: normalizedForm.name,
+            email: normalizedForm.email,
+            password: trimmedPassword,
             role: 'aluno',
             tenantId,
-            phone: form.phone,
-            active: form.active,
+            phone: normalizedForm.phone,
+            active: normalizedForm.active,
           });
-          if (reg.success && reg.user) {
-            await studentService.update(created.id, { userId: reg.user.id });
+          if (!reg.success || !reg.user) {
+            await studentService.delete(created.id);
+            toast.error(
+              reg.error || 'Não foi possível criar o acesso de login do aluno.',
+              'Erro ao liberar acesso'
+            );
+            return;
           }
+          await studentService.update(created.id, { userId: reg.user.id });
         }
         await activityService.log({
           userId: user?.id || 'usr-inst-001',
           type: 'student_added',
-          description: `Novo aluno cadastrado: ${form.name}`,
+          description: `Novo aluno cadastrado: ${normalizedForm.name}`,
         });
-        toast.success(`Aluno ${form.name} cadastrado com sucesso!`, 'Aluno cadastrado');
+        toast.success(`Aluno ${normalizedForm.name} cadastrado com sucesso!`, 'Aluno cadastrado');
       }
       onSave();
     } catch (err) {

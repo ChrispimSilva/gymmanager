@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { SettingsProvider } from '../../contexts/SettingsContext';
 import { ThemeProvider } from '../../contexts/ThemeContext';
+import { settingsService } from '../../services/settingsService';
 import Header from '../../components/layout/Header';
 import { BackupManagementModal } from '../../components/admin/BackupManagementModal';
 
@@ -182,5 +183,43 @@ describe('AuthContext & Backup Access Restrictions', () => {
     });
 
     expect(screen.getByText('Backup & Segurança de Dados')).toBeInTheDocument();
+  });
+
+  it('should preserve existing customized branding across login when upgrading an installation without gymmanager-tenants', async () => {
+    localStorage.setItem(
+      'gymmanager-settings',
+      JSON.stringify({
+        gymName: 'Academia Titã',
+        logoUrl: 'https://cdn.example.com/tita.png',
+        primaryColor: '#6366f1',
+        themePreset: 'indigo',
+      })
+    );
+
+    let bridge: AuthBridge | null = null;
+    const handleAuth = (next: AuthBridge) => {
+      bridge = next;
+    };
+
+    render(
+      <SettingsProvider>
+        <AuthProvider>
+          <AuthConsumer onAuth={handleAuth} />
+        </AuthProvider>
+      </SettingsProvider>
+    );
+
+    let res: Awaited<ReturnType<AuthBridge['loginWithRole']>> | undefined;
+    await act(async () => {
+      res = await bridge!.loginWithRole('admin@gym.com', 'admin123', 'admin');
+    });
+
+    expect(res).toEqual({ success: true });
+    expect(settingsService.getSettings()).toEqual({
+      gymName: 'Academia Titã',
+      logoUrl: 'https://cdn.example.com/tita.png',
+      primaryColor: '#6366f1',
+      themePreset: 'indigo',
+    });
   });
 });
