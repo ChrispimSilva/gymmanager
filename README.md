@@ -176,6 +176,7 @@ Para entender a fundo como o projeto funciona e conferir o plano de testes, cons
 
 - 📖 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Arquitetura técnica, diagramas de entidades, fluxo de autenticação e guia de migração.
 - 📋 **[docs/QA.md](docs/QA.md)** — Manual de QA, instruções para subir a aplicação localmente e matriz de cenários de teste funcionais e de regressão.
+- 🧭 **[docs/USER_JOURNEYS.md](docs/USER_JOURNEYS.md)** — Documentação visual das jornadas de usuário por perfil (`SuperAdmin`, `Admin`, `Personal` e `Aluno`) com capturas via Playwright.
 
 > **Nota:** Este projeto usa `localStorage` através do Repository Pattern com interfaces desacopladas (ideal para estudo, prototipação e PWA offline). Consulte o guia de migração na documentação para evoluir para um backend real.
 
