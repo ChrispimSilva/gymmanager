@@ -23,13 +23,13 @@ export function BackupManagementModal({ isOpen, onClose }: BackupManagementModal
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    if (isOpen) {
+    if (isOpen && user?.role === 'superadmin') {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, user?.role]);
 
-  if (!isOpen) return null;
+  if (!isOpen || user?.role !== 'superadmin') return null;
 
   const handleExportEncrypted = async () => {
     setExporting(true);

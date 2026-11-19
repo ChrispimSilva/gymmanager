@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Workout, WorkoutExercise } from '../../types';
 import type { IWorkoutRepository } from '../interfaces/IWorkoutRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-workouts';
 
@@ -15,26 +16,34 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   }
 
   async getAll(): Promise<Workout[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(w => matchesActiveTenant(w.tenantId));
   }
 
   async getById(id: string): Promise<Workout | null> {
-    const workout = this.getStorageData().find(w => w.id === id);
+    const workout = this.getStorageData().find(
+      w => w.id === id && matchesActiveTenant(w.tenantId)
+    );
     return workout || null;
   }
 
   async getByStudentId(studentId: string): Promise<Workout[]> {
-    return this.getStorageData().filter(w => w.studentId === studentId);
+    return this.getStorageData().filter(
+      w => w.studentId === studentId && matchesActiveTenant(w.tenantId)
+    );
   }
 
   async getByInstructorId(instructorId: string): Promise<Workout[]> {
-    return this.getStorageData().filter(w => w.instructorId === instructorId);
+    return this.getStorageData().filter(
+      w => w.instructorId === instructorId && matchesActiveTenant(w.tenantId)
+    );
   }
 
   async getCommunityWorkouts(): Promise<Workout[]> {
     // Community workouts are either explicitly flagged isCommunity === true,
     // or unassigned templates (no studentId), or created by instructors/admin
-    return this.getStorageData().filter(w => w.isCommunity !== false);
+    return this.getStorageData().filter(
+      w => matchesActiveTenant(w.tenantId) && w.isCommunity !== false
+    );
   }
 
   async cloneWorkout(
@@ -48,6 +57,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
     const cloned: Workout = {
       ...original,
       id: uuidv4(),
+      tenantId: resolveTenantId(original.tenantId),
       name: newName || `${original.name} (Cópia)`,
       studentId: targetStudentId,
       isCommunity: !targetStudentId,
@@ -65,6 +75,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
     const workouts = this.getStorageData();
     const newWorkout: Workout = {
       ...workout,
+      tenantId: resolveTenantId(workout.tenantId),
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -76,7 +87,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async update(id: string, data: Partial<Workout>): Promise<Workout | null> {
     const workouts = this.getStorageData();
-    const index = workouts.findIndex(w => w.id === id);
+    const index = workouts.findIndex(w => w.id === id && matchesActiveTenant(w.tenantId));
     if (index === -1) return null;
 
     workouts[index] = {
@@ -94,7 +105,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async delete(id: string): Promise<boolean> {
     const workouts = this.getStorageData();
-    const filtered = workouts.filter(w => w.id !== id);
+    const filtered = workouts.filter(w => !(w.id === id && matchesActiveTenant(w.tenantId)));
     if (filtered.length === workouts.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -102,7 +113,9 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async deleteByStudentId(studentId: string): Promise<number> {
     const workouts = this.getStorageData();
-    const remaining = workouts.filter(w => w.studentId !== studentId);
+    const remaining = workouts.filter(
+      w => !(w.studentId === studentId && matchesActiveTenant(w.tenantId))
+    );
     const countDeleted = workouts.length - remaining.length;
     if (countDeleted > 0) {
       this.saveStorageData(remaining);
@@ -111,6 +124,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   }
 
   async getTotalCount(): Promise<number> {
-    return this.getStorageData().length;
+    const all = await this.getAll();
+    return all.length;
   }
 }

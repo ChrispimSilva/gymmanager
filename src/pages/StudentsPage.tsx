@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, Plus, UserCheck, UserX, X, Mail, Phone, Target, Ruler, Weight } from 'lucide-react';
+import { Search, Plus, UserCheck, UserX, X, Mail, Phone, Target, Ruler, Weight, Lock } from 'lucide-react';
 import { studentService } from '../services/studentService';
+import { userService } from '../services/userService';
+import { tenantService } from '../services/tenantService';
 import { activityService } from '../services/activityService';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import type { Student } from '../types';
+import { DEFAULT_TENANT_ID, type Student } from '../types';
 
 export default function StudentsPage() {
   const { user } = useAuth();
@@ -106,16 +108,27 @@ export default function StudentsPage() {
 
   const handleToggleActive = async (student: Student) => {
     try {
+      if (!student.active) {
+        const tenantId = student.tenantId || user?.tenantId || DEFAULT_TENANT_ID;
+        const seatCheck = await tenantService.canAddSeat(tenantId);
+        if (!seatCheck.allowed) {
+          toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+          return;
+        }
+      }
       const updated = await studentService.toggleActive(student.id);
       if (updated) {
+        if (updated.userId) {
+          await userService.update(updated.userId, { active: updated.active });
+        }
         toast.info(
           `Aluno ${updated.name} está agora ${updated.active ? 'ativo' : 'inativo'}.`,
           'Status atualizado'
         );
         await refreshStudents();
       }
-    } catch {
-      toast.error('Erro ao alternar status do aluno.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao alternar status do aluno.');
     }
   };
 
@@ -358,6 +371,7 @@ function StudentFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState({
     name: student?.name || '',
@@ -369,6 +383,7 @@ function StudentFormModal({
     goal: student?.goal || 'Hipertrofia',
     active: student?.active ?? true,
   });
+  const [loginPassword, setLoginPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -383,21 +398,142 @@ function StudentFormModal({
     e.preventDefault();
     setSaving(true);
     try {
+      const tenantId = student?.tenantId || user?.tenantId || DEFAULT_TENANT_ID;
+      const trimmedPassword = loginPassword.trim();
+      const normalizedForm = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+      };
+
+      if (trimmedPassword.length > 0 && trimmedPassword.length < 6) {
+        toast.error('A senha de acesso deve ter pelo menos 6 caracteres.', 'Senha inválida');
+        return;
+      }
+
       if (student) {
-        await studentService.update(student.id, form);
-        toast.success(`Dados do aluno ${form.name} atualizados com sucesso!`, 'Aluno atualizado');
+        if (!student.active && normalizedForm.active) {
+          const seatCheck = await tenantService.canAddSeat(tenantId);
+          if (!seatCheck.allowed) {
+            toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+            return;
+          }
+        }
+
+        if (trimmedPassword.length >= 6) {
+          const existingAccount = await userService.findByEmail(normalizedForm.email);
+          if (student.userId) {
+            if (existingAccount && existingAccount.id !== student.userId) {
+              toast.error('Este email já está cadastrado', 'Erro ao atualizar acesso');
+              return;
+            }
+          } else if (existingAccount) {
+            toast.error('Este email já está cadastrado', 'Erro ao liberar acesso');
+            return;
+          }
+        }
+
+        await studentService.update(student.id, normalizedForm);
+        if (student.userId && student.active !== normalizedForm.active) {
+          await userService.update(student.userId, { active: normalizedForm.active });
+        }
+        if (trimmedPassword.length >= 6) {
+          if (student.userId) {
+            const updatedUser = await userService.update(student.userId, {
+              name: normalizedForm.name,
+              email: normalizedForm.email,
+              password: trimmedPassword,
+            });
+            if (!updatedUser) {
+              toast.error(
+                'Não foi possível atualizar o acesso de login do aluno.',
+                'Erro ao atualizar acesso'
+              );
+              return;
+            }
+          } else {
+            const reg = await userService.register({
+              name: normalizedForm.name,
+              email: normalizedForm.email,
+              password: trimmedPassword,
+              role: 'aluno',
+              tenantId,
+              phone: normalizedForm.phone,
+              active: normalizedForm.active,
+            });
+            if (!reg.success || !reg.user) {
+              await studentService.update(student.id, {
+                name: student.name,
+                email: student.email,
+                phone: student.phone,
+                birthDate: student.birthDate,
+                weight: student.weight,
+                height: student.height,
+                goal: student.goal,
+                active: student.active,
+              });
+              toast.error(
+                reg.error || 'Não foi possível criar o acesso de login do aluno.',
+                'Erro ao liberar acesso'
+              );
+              return;
+            }
+            await studentService.update(student.id, { userId: reg.user.id });
+          }
+        }
+        toast.success(
+          `Dados do aluno ${normalizedForm.name} atualizados com sucesso!`,
+          'Aluno atualizado'
+        );
       } else {
-        await studentService.create({ ...form, photo: '' });
+        if (normalizedForm.active) {
+          const seatCheck = await tenantService.canAddSeat(tenantId);
+          if (!seatCheck.allowed) {
+            toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+            return;
+          }
+        }
+
+        if (trimmedPassword.length >= 6) {
+          const existingAccount = await userService.findByEmail(normalizedForm.email);
+          if (existingAccount) {
+            toast.error('Este email já está cadastrado', 'Erro ao liberar acesso');
+            return;
+          }
+        }
+
+        const created = await studentService.create({ ...normalizedForm, photo: '', tenantId });
+        if (trimmedPassword.length >= 6) {
+          const reg = await userService.register({
+            name: normalizedForm.name,
+            email: normalizedForm.email,
+            password: trimmedPassword,
+            role: 'aluno',
+            tenantId,
+            phone: normalizedForm.phone,
+            active: normalizedForm.active,
+          });
+          if (!reg.success || !reg.user) {
+            await studentService.delete(created.id);
+            toast.error(
+              reg.error || 'Não foi possível criar o acesso de login do aluno.',
+              'Erro ao liberar acesso'
+            );
+            return;
+          }
+          await studentService.update(created.id, { userId: reg.user.id });
+        }
         await activityService.log({
-          userId: 'usr-inst-001',
+          userId: user?.id || 'usr-inst-001',
           type: 'student_added',
-          description: `Novo aluno cadastrado: ${form.name}`,
+          description: `Novo aluno cadastrado: ${normalizedForm.name}`,
         });
-        toast.success(`Aluno ${form.name} cadastrado com sucesso!`, 'Aluno cadastrado');
+        toast.success(`Aluno ${normalizedForm.name} cadastrado com sucesso!`, 'Aluno cadastrado');
       }
       onSave();
-    } catch {
-      toast.error('Erro ao salvar dados do aluno.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar dados do aluno.');
     } finally {
       setSaving(false);
     }
@@ -515,6 +651,22 @@ function StudentFormModal({
             >
               {goals.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <Lock className="w-3 h-3 inline mr-1" />
+              Senha de Login do Aluno <span className="text-[10px] opacity-70">(opcional, mín. 6 chars para liberar acesso)</span>
+            </label>
+            <input
+              type="password"
+              minLength={6}
+              value={loginPassword}
+              onChange={e => setLoginPassword(e.target.value)}
+              placeholder={student?.userId ? 'Deixe em branco para manter a senha atual' : 'Defina uma senha para o aluno entrar no app'}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+              style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+            />
           </div>
 
           <div className="flex gap-3 pt-4">

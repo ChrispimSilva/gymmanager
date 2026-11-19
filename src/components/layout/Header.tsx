@@ -23,8 +23,10 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const roleLabels: Record<string, string> = {
-    admin: 'Administrador',
-    instrutor: 'Instrutor',
+    superadmin: 'SuperAdmin (Plataforma)',
+    admin: 'Admin (Academia)',
+    personal: 'Personal',
+    instrutor: 'Personal',
     aluno: 'Aluno',
   };
 
@@ -331,7 +333,7 @@ export default function Header() {
                     Meu Perfil & Avatar
                   </button>
 
-                  {user?.role === 'admin' && (
+                  {user?.role === 'superadmin' && (
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -369,11 +371,13 @@ export default function Header() {
         onClose={() => setShowProfileModal(false)}
       />
 
-      {/* Backup & Database Management Modal */}
-      <BackupManagementModal
-        isOpen={showBackupModal}
-        onClose={() => setShowBackupModal(false)}
-      />
+      {/* Backup & Database Management Modal (SuperAdmin only) */}
+      {user?.role === 'superadmin' && (
+        <BackupManagementModal
+          isOpen={showBackupModal}
+          onClose={() => setShowBackupModal(false)}
+        />
+      )}
     </>
   );
 }

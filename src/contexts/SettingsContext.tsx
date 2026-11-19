@@ -17,6 +17,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     settingsService.applyThemeColor(settings.primaryColor);
   }, [settings.primaryColor]);
 
+  useEffect(() => {
+    const handleSettingsEvent = (e: Event) => {
+      const custom = e as CustomEvent<GymSettings>;
+      if (custom.detail) {
+        setSettings(custom.detail);
+      } else {
+        setSettings(settingsService.getSettings());
+      }
+    };
+    window.addEventListener('gymmanager:settings-updated', handleSettingsEvent);
+    return () => window.removeEventListener('gymmanager:settings-updated', handleSettingsEvent);
+  }, []);
+
   const updateSettings = (newSettings: Partial<GymSettings>) => {
     const merged: GymSettings = { ...settings, ...newSettings };
     const saved = settingsService.saveSettings(merged);

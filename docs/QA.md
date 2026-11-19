@@ -50,9 +50,10 @@ Ao abrir a aplicação pela primeira vez, o banco de dados local (`localStorage`
 
 | Perfil | E-mail | Senha | Permissões / Acesso |
 |---|---|---|---|
-| **Administrador** | `admin@gym.com` | `admin123` | Acesso total (Alunos, Treinos, Exercícios, Evolução, Histórico, Backup) |
-| **Instrutor** | `instrutor@gym.com` | `instrutor123` | Gestão de Alunos, Treinos, Exercícios Customizados, Evolução, Histórico |
-| **Aluno** | `aluno@gym.com` | `aluno123` | Visão personalizada (Meus Treinos, Executar Treino, Minha Evolução) |
+| **SuperAdmin** | `superadmin@gym.com` | `super123` | Dono da Plataforma SaaS (Gestão de Academias/Tenants, Contas Admin, Assentos e Backup Global) |
+| **Admin (Academia)** | `admin@gym.com` | `admin123` | Dono do Tenant: Gestão de Equipe (Personais), Alunos, Treinos, Aparelhos e Configurações |
+| **Personal** | `personal@gym.com` | `personal123` | Funcionário do Tenant: Gestão de Alunos, Treinos, Aparelhos, Exercícios Customizados e Evolução |
+| **Aluno** | `aluno@gym.com` | `aluno123` | Cliente do Tenant: Visão personalizada (Meus Treinos, Executar Treino, Minha Evolução e Histórico) |
 
 > 💡 **Dica de Teste:** Você também pode utilizar o botão **"Criar conta"** na tela de login para registrar novos usuários com qualquer perfil.
 
@@ -202,9 +203,9 @@ Ao abrir a aplicação pela primeira vez, o banco de dados local (`localStorage`
 
 ### 🔹 CT-09: Sistema de Backup & Restauração JSON
 
-* **Objetivo:** Validar a exportação de dados em JSON e restauração completa.
+* **Objetivo:** Validar a exportação de dados em JSON/AES-256 e restauração completa (operação global exclusiva do perfil `SuperAdmin`).
 * **Passos:**
-  1. Clicar no menu do usuário (avatar) no Header e selecionar **"Backup & Gestão de Dados"**.
+  1. Logar como `SuperAdmin` (`superadmin@gym.com`), clicar no menu do usuário (avatar) no Header e selecionar **"Backup & Gestão de Dados"**.
   2. Clicar em **"Baixar JSON"**.
      * **Resultado Esperado:** Download do arquivo `gymmanager-backup-AAAA-MM-DD.json` contendo todas as entidades.
   3. Clicar em **"Restaurar a partir de Backup"**, selecionar o arquivo baixado.
@@ -313,7 +314,7 @@ Ao abrir a aplicação pela primeira vez, o banco de dados local (`localStorage`
 
 ### Os dados de demonstração não aparecem ao abrir o app
 * **Causa:** O localStorage pode estar bloqueado pelas configurações de privacidade do navegador.
-* **Solução:** Abra o menu do usuário -> **Backup & Gestão de Dados** -> **"Restaurar Dados Padrão (Demo)"** ou execute `localStorage.clear()` no console (F12) e recarregue a página.
+* **Solução:** Logue como SuperAdmin, abra o menu do usuário -> **Backup & Gestão de Dados** -> **"Restaurar Dados Padrão (Demo)"** ou execute `localStorage.clear()` no console (F12) e recarregue a página.
 
 ### O áudio do temporizador de descanso não toca
 * **Causa:** Políticas de autoplay dos navegadores exigem interação prévia do usuário na página antes de sintetizar áudio.

@@ -6,6 +6,7 @@ import { LocalStorageActivityRepository } from './localStorage/LocalStorageActiv
 import { LocalStorageWorkoutSessionRepository } from './localStorage/LocalStorageWorkoutSessionRepository';
 import { LocalStorageCustomExerciseRepository } from './localStorage/LocalStorageCustomExerciseRepository';
 import { LocalStorageEquipmentRepository } from './localStorage/LocalStorageEquipmentRepository';
+import { LocalStorageTenantRepository } from './localStorage/LocalStorageTenantRepository';
 
 export * from './interfaces/IUserRepository';
 export * from './interfaces/IStudentRepository';
@@ -15,6 +16,7 @@ export * from './interfaces/IActivityRepository';
 export * from './interfaces/IWorkoutSessionRepository';
 export * from './interfaces/ICustomExerciseRepository';
 export * from './interfaces/IEquipmentRepository';
+export * from './interfaces/ITenantRepository';
 
 export * from './localStorage/LocalStorageUserRepository';
 export * from './localStorage/LocalStorageStudentRepository';
@@ -24,8 +26,10 @@ export * from './localStorage/LocalStorageActivityRepository';
 export * from './localStorage/LocalStorageWorkoutSessionRepository';
 export * from './localStorage/LocalStorageCustomExerciseRepository';
 export * from './localStorage/LocalStorageEquipmentRepository';
+export * from './localStorage/LocalStorageTenantRepository';
 
 // Instantiated repository singletons with referential dependencies
+export const tenantRepository = new LocalStorageTenantRepository();
 export const workoutRepository = new LocalStorageWorkoutRepository();
 export const progressRepository = new LocalStorageProgressRepository();
 export const sessionRepository = new LocalStorageWorkoutSessionRepository();

@@ -6,6 +6,7 @@ export interface BackupDataPayload {
   appName: 'GymManager';
   exportedAt: string;
   data: {
+    tenants?: unknown[];
     users?: unknown[];
     students?: unknown[];
     workouts?: unknown[];
@@ -31,6 +32,7 @@ export interface EncryptedBackupEnvelope {
 }
 
 const STORAGE_KEYS = {
+  tenants: 'gymmanager-tenants',
   users: 'gymmanager-users',
   students: 'gymmanager-students',
   workouts: 'gymmanager-workouts',
@@ -249,6 +251,10 @@ export const backupService = {
 
       const counts: Record<string, number> = {};
 
+      if (Array.isArray(data.tenants)) {
+        localStorage.setItem(STORAGE_KEYS.tenants, JSON.stringify(data.tenants));
+        counts.tenants = data.tenants.length;
+      }
       if (Array.isArray(data.users)) {
         localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(data.users));
         counts.users = data.users.length;

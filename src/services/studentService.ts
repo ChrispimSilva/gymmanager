@@ -1,9 +1,10 @@
-import type { Student } from '../types';
+import { DEFAULT_TENANT_ID, type Student } from '../types';
 import { studentRepository } from '../repositories';
+import { tenantService } from './tenantService';
 
 export const studentService = {
-  async getAll(): Promise<Student[]> {
-    return studentRepository.getAll();
+  async getAll(tenantId?: string): Promise<Student[]> {
+    return studentRepository.getAll(tenantId);
   },
 
   async getById(id: string): Promise<Student | null> {
@@ -19,6 +20,16 @@ export const studentService = {
   },
 
   async update(id: string, data: Partial<Student>): Promise<Student | null> {
+    if (data.active === true) {
+      const existing = await studentRepository.getById(id);
+      if (existing && !existing.active) {
+        const tenantId = existing.tenantId || DEFAULT_TENANT_ID;
+        const seatCheck = await tenantService.canAddSeat(tenantId);
+        if (!seatCheck.allowed) {
+          throw new Error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+        }
+      }
+    }
     return studentRepository.update(id, data);
   },
 
@@ -27,18 +38,27 @@ export const studentService = {
   },
 
   async toggleActive(id: string): Promise<Student | null> {
+    const existing = await studentRepository.getById(id);
+    if (!existing) return null;
+    if (!existing.active) {
+      const tenantId = existing.tenantId || DEFAULT_TENANT_ID;
+      const seatCheck = await tenantService.canAddSeat(tenantId);
+      if (!seatCheck.allowed) {
+        throw new Error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+      }
+    }
     return studentRepository.toggleActive(id);
   },
 
-  async search(query: string): Promise<Student[]> {
-    return studentRepository.search(query);
+  async search(query: string, tenantId?: string): Promise<Student[]> {
+    return studentRepository.search(query, tenantId);
   },
 
-  async getActiveCount(): Promise<number> {
-    return studentRepository.getActiveCount();
+  async getActiveCount(tenantId?: string): Promise<number> {
+    return studentRepository.getActiveCount(tenantId);
   },
 
-  async getTotalCount(): Promise<number> {
-    return studentRepository.getTotalCount();
+  async getTotalCount(tenantId?: string): Promise<number> {
+    return studentRepository.getTotalCount(tenantId);
   },
 };

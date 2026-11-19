@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { ActivityLog } from '../../types';
 import type { IActivityRepository } from '../interfaces/IActivityRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-activity';
 
@@ -15,9 +16,9 @@ export class LocalStorageActivityRepository implements IActivityRepository {
   }
 
   async getAll(): Promise<ActivityLog[]> {
-    return this.getStorageData().sort((a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
+    return this.getStorageData()
+      .filter(a => matchesActiveTenant(a.tenantId))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async getRecent(count: number = 10): Promise<ActivityLog[]> {
@@ -37,6 +38,7 @@ export class LocalStorageActivityRepository implements IActivityRepository {
     const logs = this.getStorageData();
     const newLog: ActivityLog = {
       ...entry,
+      tenantId: resolveTenantId(entry.tenantId),
       id: uuidv4(),
       timestamp: new Date().toISOString(),
     };

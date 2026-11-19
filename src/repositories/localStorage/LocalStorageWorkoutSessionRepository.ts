@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { WorkoutSession } from '../../types';
 import type { IWorkoutSessionRepository } from '../interfaces/IWorkoutSessionRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-sessions';
 
@@ -15,25 +16,27 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
   }
 
   async getAll(): Promise<WorkoutSession[]> {
-    return this.getStorageData().sort(
-      (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime()
-    );
+    return this.getStorageData()
+      .filter(s => matchesActiveTenant(s.tenantId))
+      .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
   }
 
   async getById(id: string): Promise<WorkoutSession | null> {
-    const session = this.getStorageData().find(s => s.id === id);
+    const session = this.getStorageData().find(
+      s => s.id === id && matchesActiveTenant(s.tenantId)
+    );
     return session || null;
   }
 
   async getByStudentId(studentId: string): Promise<WorkoutSession[]> {
     return this.getStorageData()
-      .filter(s => s.studentId === studentId)
+      .filter(s => s.studentId === studentId && matchesActiveTenant(s.tenantId))
       .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
   }
 
   async getByWorkoutId(workoutId: string): Promise<WorkoutSession[]> {
     return this.getStorageData()
-      .filter(s => s.workoutId === workoutId)
+      .filter(s => s.workoutId === workoutId && matchesActiveTenant(s.tenantId))
       .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
   }
 
@@ -41,6 +44,7 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
     const sessions = this.getStorageData();
     const newSession: WorkoutSession = {
       ...session,
+      tenantId: resolveTenantId(session.tenantId),
       id: uuidv4(),
     };
     sessions.push(newSession);
@@ -50,7 +54,7 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
 
   async delete(id: string): Promise<boolean> {
     const sessions = this.getStorageData();
-    const filtered = sessions.filter(s => s.id !== id);
+    const filtered = sessions.filter(s => !(s.id === id && matchesActiveTenant(s.tenantId)));
     if (filtered.length === sessions.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -58,7 +62,9 @@ export class LocalStorageWorkoutSessionRepository implements IWorkoutSessionRepo
 
   async deleteByStudentId(studentId: string): Promise<number> {
     const sessions = this.getStorageData();
-    const remaining = sessions.filter(s => s.studentId !== studentId);
+    const remaining = sessions.filter(
+      s => !(s.studentId === studentId && matchesActiveTenant(s.tenantId))
+    );
     const countDeleted = sessions.length - remaining.length;
     if (countDeleted > 0) {
       this.saveStorageData(remaining);

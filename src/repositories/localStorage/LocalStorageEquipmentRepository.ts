@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { EquipmentItem } from '../../types';
 import type { IEquipmentRepository } from '../interfaces/IEquipmentRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-equipments';
 
@@ -76,11 +77,13 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
   }
 
   async getAll(): Promise<EquipmentItem[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(e => matchesActiveTenant(e.tenantId));
   }
 
   async getById(id: string): Promise<EquipmentItem | null> {
-    const item = this.getStorageData().find(e => e.id === id);
+    const item = this.getStorageData().find(
+      e => e.id === id && matchesActiveTenant(e.tenantId)
+    );
     return item || null;
   }
 
@@ -90,6 +93,7 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
     const equipments = this.getStorageData();
     const newItem: EquipmentItem = {
       ...equipment,
+      tenantId: resolveTenantId(equipment.tenantId),
       id: `eq-${uuidv4().slice(0, 8)}`,
       createdAt: new Date().toISOString(),
     };
@@ -103,7 +107,7 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
     data: Partial<EquipmentItem>
   ): Promise<EquipmentItem | null> {
     const equipments = this.getStorageData();
-    const index = equipments.findIndex(e => e.id === id);
+    const index = equipments.findIndex(e => e.id === id && matchesActiveTenant(e.tenantId));
     if (index === -1) return null;
 
     equipments[index] = { ...equipments[index], ...data };
@@ -113,7 +117,7 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
 
   async delete(id: string): Promise<boolean> {
     const equipments = this.getStorageData();
-    const filtered = equipments.filter(e => e.id !== id);
+    const filtered = equipments.filter(e => !(e.id === id && matchesActiveTenant(e.tenantId)));
     if (filtered.length === equipments.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -121,7 +125,8 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
 
   async search(query: string): Promise<EquipmentItem[]> {
     const lower = query.toLowerCase();
-    return this.getStorageData().filter(
+    const all = await this.getAll();
+    return all.filter(
       e =>
         e.name.toLowerCase().includes(lower) ||
         (e.brand && e.brand.toLowerCase().includes(lower)) ||
@@ -132,7 +137,8 @@ export class LocalStorageEquipmentRepository implements IEquipmentRepository {
 
   async getByLocation(location: string): Promise<EquipmentItem[]> {
     const lower = location.toLowerCase();
-    return this.getStorageData().filter(e =>
+    const all = await this.getAll();
+    return all.filter(e =>
       e.location.toLowerCase().includes(lower)
     );
   }

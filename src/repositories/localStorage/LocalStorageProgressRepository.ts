@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { PhysicalProgress } from '../../types';
 import type { IProgressRepository } from '../interfaces/IProgressRepository';
+import { matchesActiveTenant, resolveTenantId } from '../../utils/tenantContext';
 
 const STORAGE_KEY = 'gymmanager-progress';
 
@@ -21,12 +22,12 @@ export class LocalStorageProgressRepository implements IProgressRepository {
   }
 
   async getAll(): Promise<PhysicalProgress[]> {
-    return this.getStorageData();
+    return this.getStorageData().filter(p => matchesActiveTenant(p.tenantId));
   }
 
   async getByStudentId(studentId: string): Promise<PhysicalProgress[]> {
     return this.getStorageData()
-      .filter(p => p.studentId === studentId)
+      .filter(p => p.studentId === studentId && matchesActiveTenant(p.tenantId))
       .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
   }
 
@@ -39,6 +40,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
     const records = this.getStorageData();
     const newRecord: PhysicalProgress = {
       ...data,
+      tenantId: resolveTenantId(data.tenantId),
       id: uuidv4(),
       bmi: calculateBMI(data.weight, heightCm),
     };
@@ -49,7 +51,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
 
   async delete(id: string): Promise<boolean> {
     const records = this.getStorageData();
-    const filtered = records.filter(r => r.id !== id);
+    const filtered = records.filter(r => !(r.id === id && matchesActiveTenant(r.tenantId)));
     if (filtered.length === records.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -57,7 +59,9 @@ export class LocalStorageProgressRepository implements IProgressRepository {
 
   async deleteByStudentId(studentId: string): Promise<number> {
     const records = this.getStorageData();
-    const remaining = records.filter(r => r.studentId !== studentId);
+    const remaining = records.filter(
+      r => !(r.studentId === studentId && matchesActiveTenant(r.tenantId))
+    );
     const countDeleted = records.length - remaining.length;
     if (countDeleted > 0) {
       this.saveStorageData(remaining);
@@ -66,6 +70,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
   }
 
   async getTotalCount(): Promise<number> {
-    return this.getStorageData().length;
+    const all = await this.getAll();
+    return all.length;
   }
 }
