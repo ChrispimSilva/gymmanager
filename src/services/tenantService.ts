@@ -1,5 +1,14 @@
-import type { GymSettings, Tenant, TenantSeatUsage, User } from '../types';
-import { studentRepository, tenantRepository, userRepository } from '../repositories';
+import { DEFAULT_TENANT_ID, type GymSettings, type Tenant, type TenantSeatUsage, type User } from '../types';
+import {
+  customExerciseRepository,
+  equipmentRepository,
+  progressRepository,
+  sessionRepository,
+  studentRepository,
+  tenantRepository,
+  userRepository,
+  workoutRepository,
+} from '../repositories';
 import { THEME_PRESETS } from './settingsService';
 
 export const tenantService = {
@@ -33,7 +42,65 @@ export const tenantService = {
   },
 
   async delete(id: string): Promise<boolean> {
-    return tenantRepository.delete(id);
+    const tenant = await tenantRepository.getById(id);
+    const deleted = await tenantRepository.delete(id);
+    if (!deleted) return false;
+
+    // Remove all member user accounts belonging to this tenant (admin, personals, alunos)
+    const members = await userRepository.getAll(id);
+    for (const member of members) {
+      await userRepository.delete(member.id);
+    }
+
+    if (tenant?.ownerUserId && tenant.ownerUserId !== 'pending') {
+      const owner = await userRepository.findById(tenant.ownerUserId);
+      if (owner && owner.role !== 'superadmin') {
+        await userRepository.delete(owner.id);
+      }
+    }
+
+    // Remove all students belonging to this tenant (cascades student workouts, progress and sessions)
+    const students = await studentRepository.getAll(id);
+    for (const student of students) {
+      await studentRepository.delete(student.id);
+    }
+
+    // Remove any remaining tenant-scoped workouts (e.g. community templates), progress, sessions, equipments and custom exercises
+    const [allWorkouts, allProgress, allSessions, allEquipments, allCustomExercises] = await Promise.all([
+      workoutRepository.getAll(),
+      progressRepository.getAll(),
+      sessionRepository.getAll(),
+      equipmentRepository.getAll(),
+      customExerciseRepository.getAll(),
+    ]);
+
+    for (const workout of allWorkouts) {
+      if ((workout.tenantId || DEFAULT_TENANT_ID) === id) {
+        await workoutRepository.delete(workout.id);
+      }
+    }
+    for (const record of allProgress) {
+      if ((record.tenantId || DEFAULT_TENANT_ID) === id) {
+        await progressRepository.delete(record.id);
+      }
+    }
+    for (const session of allSessions) {
+      if ((session.tenantId || DEFAULT_TENANT_ID) === id) {
+        await sessionRepository.delete(session.id);
+      }
+    }
+    for (const eq of allEquipments) {
+      if ((eq.tenantId || DEFAULT_TENANT_ID) === id) {
+        await equipmentRepository.delete(eq.id);
+      }
+    }
+    for (const ex of allCustomExercises) {
+      if ((ex.tenantId || DEFAULT_TENANT_ID) === id) {
+        await customExerciseRepository.delete(ex.id);
+      }
+    }
+
+    return true;
   },
 
   async getSeatUsage(tenantId: string): Promise<TenantSeatUsage> {
@@ -73,7 +140,15 @@ export const tenantService = {
       this.getSeatUsage(tenantId),
     ]);
 
-    if (tenant && !tenant.active) {
+    if (!tenant) {
+      return {
+        allowed: false,
+        reason: 'Esta academia não foi encontrada na plataforma.',
+        usage,
+      };
+    }
+
+    if (!tenant.active) {
       return {
         allowed: false,
         reason: 'Esta academia encontra-se suspensa no momento.',

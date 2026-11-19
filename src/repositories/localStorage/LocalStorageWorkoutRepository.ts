@@ -20,16 +20,22 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
   }
 
   async getById(id: string): Promise<Workout | null> {
-    const workout = this.getStorageData().find(w => w.id === id);
+    const workout = this.getStorageData().find(
+      w => w.id === id && matchesActiveTenant(w.tenantId)
+    );
     return workout || null;
   }
 
   async getByStudentId(studentId: string): Promise<Workout[]> {
-    return this.getStorageData().filter(w => w.studentId === studentId);
+    return this.getStorageData().filter(
+      w => w.studentId === studentId && matchesActiveTenant(w.tenantId)
+    );
   }
 
   async getByInstructorId(instructorId: string): Promise<Workout[]> {
-    return this.getStorageData().filter(w => w.instructorId === instructorId);
+    return this.getStorageData().filter(
+      w => w.instructorId === instructorId && matchesActiveTenant(w.tenantId)
+    );
   }
 
   async getCommunityWorkouts(): Promise<Workout[]> {
@@ -81,7 +87,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async update(id: string, data: Partial<Workout>): Promise<Workout | null> {
     const workouts = this.getStorageData();
-    const index = workouts.findIndex(w => w.id === id);
+    const index = workouts.findIndex(w => w.id === id && matchesActiveTenant(w.tenantId));
     if (index === -1) return null;
 
     workouts[index] = {
@@ -99,7 +105,7 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async delete(id: string): Promise<boolean> {
     const workouts = this.getStorageData();
-    const filtered = workouts.filter(w => w.id !== id);
+    const filtered = workouts.filter(w => !(w.id === id && matchesActiveTenant(w.tenantId)));
     if (filtered.length === workouts.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -107,7 +113,9 @@ export class LocalStorageWorkoutRepository implements IWorkoutRepository {
 
   async deleteByStudentId(studentId: string): Promise<number> {
     const workouts = this.getStorageData();
-    const remaining = workouts.filter(w => w.studentId !== studentId);
+    const remaining = workouts.filter(
+      w => !(w.studentId === studentId && matchesActiveTenant(w.tenantId))
+    );
     const countDeleted = workouts.length - remaining.length;
     if (countDeleted > 0) {
       this.saveStorageData(remaining);

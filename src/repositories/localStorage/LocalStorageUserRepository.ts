@@ -133,9 +133,13 @@ export class LocalStorageUserRepository implements IUserRepository {
     const direct = users.find(u => u.email.toLowerCase() === lower);
     if (direct) return direct;
 
-    // Backward-compatible alias for legacy instrutor@gym.com demo account
+    // Backward-compatible alias for legacy instrutor@gym.com demo account when still unchanged
     if (lower === 'instrutor@gym.com') {
-      return users.find(u => u.email.toLowerCase() === 'personal@gym.com' || u.id === 'usr-inst-001') || null;
+      return (
+        users.find(
+          u => u.id === 'usr-inst-001' && u.email.toLowerCase() === 'personal@gym.com'
+        ) || null
+      );
     }
     return null;
   }
@@ -144,8 +148,11 @@ export class LocalStorageUserRepository implements IUserRepository {
     const user = await this.findByEmail(email);
     if (!user) return null;
 
-    const isLegacyPersonalMatch =
+    const hasUnchangedLegacyDemoPassword =
       user.id === 'usr-inst-001' &&
+      (user.password === 'personal123' || user.password === 'instrutor123');
+    const isLegacyPersonalMatch =
+      hasUnchangedLegacyDemoPassword &&
       (password === 'personal123' || password === 'instrutor123');
 
     if (user.password === password || isLegacyPersonalMatch) {
@@ -200,7 +207,7 @@ export class LocalStorageUserRepository implements IUserRepository {
     if (normRole === 'aluno' && this.studentRepo) {
       const existingStudent = await this.studentRepo.getByUserId(newUser.id);
       if (!existingStudent) {
-        const allStudents = await this.studentRepo.getAll();
+        const allStudents = await this.studentRepo.getAll(assignedTenantId);
         const studentByEmail = allStudents.find(
           s =>
             s.email.toLowerCase() === newUser.email.toLowerCase() &&

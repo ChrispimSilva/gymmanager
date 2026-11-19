@@ -130,4 +130,65 @@ describe('LocalStorageStudentRepository & Cascade Deletion', () => {
     const remainingProgress = await progressRepo.getByStudentId(student.id);
     expect(remainingProgress.length).toBe(0);
   });
+
+  it('should isolate student lookups and mutations by active tenant', async () => {
+    const studentA = await studentRepo.create({
+      name: 'Aluno A',
+      email: 'aluno-a@teste.com',
+      phone: '',
+      birthDate: '',
+      weight: 70,
+      height: 175,
+      goal: 'Hipertrofia',
+      active: true,
+      userId: 'usr-a',
+      tenantId: 'tenant-a',
+    });
+
+    const studentB = await studentRepo.create({
+      name: 'Aluno B',
+      email: 'aluno-b@teste.com',
+      phone: '',
+      birthDate: '',
+      weight: 65,
+      height: 168,
+      goal: 'Condicionamento',
+      active: true,
+      userId: 'usr-b',
+      tenantId: 'tenant-b',
+    });
+
+    localStorage.setItem(
+      'gymmanager-auth',
+      JSON.stringify({
+        id: 'usr-personal-b',
+        name: 'Personal B',
+        email: 'pb@b.com',
+        role: 'personal',
+        tenantId: 'tenant-b',
+      })
+    );
+
+    expect(await studentRepo.getById(studentA.id)).toBeNull();
+    expect(await studentRepo.getByUserId('usr-a')).toBeNull();
+    expect(await studentRepo.update(studentA.id, { name: 'Hack' })).toBeNull();
+    expect(await studentRepo.toggleActive(studentA.id)).toBeNull();
+    expect(await studentRepo.delete(studentA.id)).toBe(false);
+
+    expect((await studentRepo.getById(studentB.id))?.id).toBe(studentB.id);
+
+    localStorage.setItem(
+      'gymmanager-auth',
+      JSON.stringify({
+        id: 'usr-personal-a',
+        name: 'Personal A',
+        email: 'pa@a.com',
+        role: 'personal',
+        tenantId: 'tenant-a',
+      })
+    );
+
+    const intactA = await studentRepo.getById(studentA.id);
+    expect(intactA?.name).toBe('Aluno A');
+  });
 });

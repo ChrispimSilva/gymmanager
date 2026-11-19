@@ -63,6 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const persistUser = (nextUser: User | null) => {
+    if (nextUser) {
+      localStorage.setItem('gymmanager-auth', JSON.stringify(nextUser));
+    } else {
+      localStorage.removeItem('gymmanager-auth');
+    }
+    setUser(nextUser);
+  };
+
   useEffect(() => {
     if (user) {
       localStorage.setItem('gymmanager-auth', JSON.stringify(user));
@@ -82,12 +91,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     const found = await userService.authenticate(email, password);
-    if (found && found.active !== false) {
-      setUser(found);
-      await syncTenantBranding(found);
-      return true;
+    if (!found || found.active === false) {
+      return false;
     }
-    return false;
+
+    const normalizedRole = normalizeUserRole(found.role);
+    if (normalizedRole !== 'superadmin') {
+      const tenantId = found.tenantId || DEFAULT_TENANT_ID;
+      const tenant = await tenantService.getById(tenantId);
+      if (!tenant || !tenant.active) {
+        return false;
+      }
+    }
+
+    persistUser(found);
+    await syncTenantBranding(found);
+    return true;
   };
 
   const loginWithRole = async (
@@ -119,7 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (normalizedRole !== 'superadmin') {
       const tenantId = found.tenantId || DEFAULT_TENANT_ID;
       const tenant = await tenantService.getById(tenantId);
-      if (tenant && !tenant.active) {
+      if (!tenant) {
+        return {
+          success: false,
+          error: 'A academia vinculada a esta conta não existe mais na plataforma.',
+        };
+      }
+      if (!tenant.active) {
         return {
           success: false,
           error: `A academia "${tenant.name}" está temporariamente suspensa na plataforma.`,
@@ -127,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setUser(found);
+    persistUser(found);
     await syncTenantBranding(found);
     return { success: true };
   };
@@ -156,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tenantId: targetTenantId,
     });
     if (result.success && result.user) {
-      setUser(result.user);
+      persistUser(result.user);
       await syncTenantBranding(result.user);
     }
     return { success: result.success, error: result.error };
@@ -167,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const updated = await userService.update(user.id, data);
       if (updated) {
-        setUser(updated);
+        persistUser(updated);
         return true;
       }
       return false;
@@ -177,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setUser(null);
+    persistUser(null);
   };
 
   return (

@@ -87,7 +87,7 @@ export default function ActiveWorkoutPage() {
         const w = await workoutService.getById(workoutId);
         if (!w) {
           toast.error('Treino não encontrado.');
-          navigate('/treinos');
+          navigate(user?.role === 'aluno' ? '/meus-treinos' : '/treinos');
           return;
         }
 
@@ -247,7 +247,7 @@ export default function ActiveWorkoutPage() {
       );
 
       toast.success('Parabéns! Treino finalizado e registrado com sucesso!', 'Treino Concluído');
-      navigate('/meus-treinos');
+      navigate(user?.role === 'aluno' ? '/meus-treinos' : '/treinos');
     } catch {
       toast.error('Erro ao salvar sessão de treino.');
       setIsSaving(false);
@@ -791,7 +791,7 @@ export default function ActiveWorkoutPage() {
         confirmLabel="Sim, Sair do Treino"
         cancelLabel="Continuar Treinando"
         variant="danger"
-        onConfirm={() => navigate('/meus-treinos')}
+        onConfirm={() => navigate(user?.role === 'aluno' ? '/meus-treinos' : '/treinos')}
         onCancel={() => setCancelConfirmOpen(false)}
       />
     </div>

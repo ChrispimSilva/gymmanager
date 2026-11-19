@@ -37,12 +37,16 @@ export class LocalStorageStudentRepository implements IStudentRepository {
   }
 
   async getById(id: string): Promise<Student | null> {
-    const student = this.getStorageData().find(s => s.id === id);
+    const student = this.getStorageData().find(
+      s => s.id === id && matchesActiveTenant(s.tenantId)
+    );
     return student || null;
   }
 
   async getByUserId(userId: string): Promise<Student | null> {
-    const student = this.getStorageData().find(s => s.userId === userId);
+    const student = this.getStorageData().find(
+      s => s.userId === userId && matchesActiveTenant(s.tenantId)
+    );
     return student || null;
   }
 
@@ -61,7 +65,7 @@ export class LocalStorageStudentRepository implements IStudentRepository {
 
   async update(id: string, data: Partial<Student>): Promise<Student | null> {
     const students = this.getStorageData();
-    const index = students.findIndex(s => s.id === id);
+    const index = students.findIndex(s => s.id === id && matchesActiveTenant(s.tenantId));
     if (index === -1) return null;
 
     students[index] = { ...students[index], ...data };
@@ -71,9 +75,10 @@ export class LocalStorageStudentRepository implements IStudentRepository {
 
   async delete(id: string): Promise<boolean> {
     const students = this.getStorageData();
-    const filtered = students.filter(s => s.id !== id);
-    if (filtered.length === students.length) return false;
+    const target = students.find(s => s.id === id && matchesActiveTenant(s.tenantId));
+    if (!target) return false;
 
+    const filtered = students.filter(s => s.id !== id);
     this.saveStorageData(filtered);
 
     // Cascade delete related entities
@@ -92,7 +97,7 @@ export class LocalStorageStudentRepository implements IStudentRepository {
 
   async toggleActive(id: string): Promise<Student | null> {
     const students = this.getStorageData();
-    const index = students.findIndex(s => s.id === id);
+    const index = students.findIndex(s => s.id === id && matchesActiveTenant(s.tenantId));
     if (index === -1) return null;
 
     students[index].active = !students[index].active;

@@ -1,5 +1,6 @@
-import type { Student } from '../types';
+import { DEFAULT_TENANT_ID, type Student } from '../types';
 import { studentRepository } from '../repositories';
+import { tenantService } from './tenantService';
 
 export const studentService = {
   async getAll(tenantId?: string): Promise<Student[]> {
@@ -19,6 +20,16 @@ export const studentService = {
   },
 
   async update(id: string, data: Partial<Student>): Promise<Student | null> {
+    if (data.active === true) {
+      const existing = await studentRepository.getById(id);
+      if (existing && !existing.active) {
+        const tenantId = existing.tenantId || DEFAULT_TENANT_ID;
+        const seatCheck = await tenantService.canAddSeat(tenantId);
+        if (!seatCheck.allowed) {
+          throw new Error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+        }
+      }
+    }
     return studentRepository.update(id, data);
   },
 
@@ -27,6 +38,15 @@ export const studentService = {
   },
 
   async toggleActive(id: string): Promise<Student | null> {
+    const existing = await studentRepository.getById(id);
+    if (!existing) return null;
+    if (!existing.active) {
+      const tenantId = existing.tenantId || DEFAULT_TENANT_ID;
+      const seatCheck = await tenantService.canAddSeat(tenantId);
+      if (!seatCheck.allowed) {
+        throw new Error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+      }
+    }
     return studentRepository.toggleActive(id);
   },
 

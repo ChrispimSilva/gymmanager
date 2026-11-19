@@ -109,7 +109,7 @@ export default function StudentsPage() {
   const handleToggleActive = async (student: Student) => {
     try {
       if (!student.active) {
-        const tenantId = user?.tenantId || DEFAULT_TENANT_ID;
+        const tenantId = student.tenantId || user?.tenantId || DEFAULT_TENANT_ID;
         const seatCheck = await tenantService.canAddSeat(tenantId);
         if (!seatCheck.allowed) {
           toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
@@ -127,8 +127,8 @@ export default function StudentsPage() {
         );
         await refreshStudents();
       }
-    } catch {
-      toast.error('Erro ao alternar status do aluno.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao alternar status do aluno.');
     }
   };
 
@@ -398,9 +398,20 @@ function StudentFormModal({
     e.preventDefault();
     setSaving(true);
     try {
-      const tenantId = user?.tenantId || DEFAULT_TENANT_ID;
+      const tenantId = student?.tenantId || user?.tenantId || DEFAULT_TENANT_ID;
       if (student) {
+        if (!student.active && form.active) {
+          const seatCheck = await tenantService.canAddSeat(tenantId);
+          if (!seatCheck.allowed) {
+            toast.error(seatCheck.reason || 'Limite de assentos da academia atingido.');
+            setSaving(false);
+            return;
+          }
+        }
         await studentService.update(student.id, form);
+        if (student.userId && student.active !== form.active) {
+          await userService.update(student.userId, { active: form.active });
+        }
         if (loginPassword.trim().length >= 6) {
           if (student.userId) {
             await userService.update(student.userId, {
@@ -456,8 +467,8 @@ function StudentFormModal({
         toast.success(`Aluno ${form.name} cadastrado com sucesso!`, 'Aluno cadastrado');
       }
       onSave();
-    } catch {
-      toast.error('Erro ao salvar dados do aluno.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar dados do aluno.');
     } finally {
       setSaving(false);
     }

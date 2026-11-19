@@ -20,7 +20,9 @@ export class LocalStorageCustomExerciseRepository implements ICustomExerciseRepo
   }
 
   async getById(id: string): Promise<CustomExercise | null> {
-    const exercise = this.getStorageData().find(e => e.id === id);
+    const exercise = this.getStorageData().find(
+      e => e.id === id && matchesActiveTenant(e.tenantId)
+    );
     return exercise || null;
   }
 
@@ -42,7 +44,7 @@ export class LocalStorageCustomExerciseRepository implements ICustomExerciseRepo
 
   async update(id: string, data: Partial<CustomExercise>): Promise<CustomExercise | null> {
     const exercises = this.getStorageData();
-    const index = exercises.findIndex(e => e.id === id);
+    const index = exercises.findIndex(e => e.id === id && matchesActiveTenant(e.tenantId));
     if (index === -1) return null;
 
     exercises[index] = { ...exercises[index], ...data };
@@ -52,7 +54,7 @@ export class LocalStorageCustomExerciseRepository implements ICustomExerciseRepo
 
   async delete(id: string): Promise<boolean> {
     const exercises = this.getStorageData();
-    const filtered = exercises.filter(e => e.id !== id);
+    const filtered = exercises.filter(e => !(e.id === id && matchesActiveTenant(e.tenantId)));
     if (filtered.length === exercises.length) return false;
     this.saveStorageData(filtered);
     return true;

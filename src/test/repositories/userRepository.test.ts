@@ -93,4 +93,53 @@ describe('LocalStorageUserRepository', () => {
     expect(student?.name).toBe('Nome Novo');
     expect(student?.photo).toBe('avatar-maromba-pro');
   });
+
+  it('should accept legacy personal alias only while default demo password and email remain unchanged', async () => {
+    // Unchanged default personal demo account supports both current and legacy demo credentials
+    const current = await userRepo.authenticate('personal@gym.com', 'personal123');
+    expect(current?.id).toBe('usr-inst-001');
+
+    const legacy = await userRepo.authenticate('instrutor@gym.com', 'instrutor123');
+    expect(legacy?.id).toBe('usr-inst-001');
+
+    // Changing the password revokes both demo passwords
+    await userRepo.update('usr-inst-001', { password: 'novaSenhaSegura99' });
+
+    expect(await userRepo.authenticate('personal@gym.com', 'personal123')).toBeNull();
+    expect(await userRepo.authenticate('personal@gym.com', 'instrutor123')).toBeNull();
+    expect(await userRepo.authenticate('instrutor@gym.com', 'instrutor123')).toBeNull();
+    expect(await userRepo.authenticate('instrutor@gym.com', 'personal123')).toBeNull();
+
+    const updatedAuth = await userRepo.authenticate('personal@gym.com', 'novaSenhaSegura99');
+    expect(updatedAuth?.id).toBe('usr-inst-001');
+  });
+
+  it('should not accept demo passwords for migrated legacy accounts with custom passwords or changed email', async () => {
+    localStorage.setItem(
+      'gymmanager-users',
+      JSON.stringify([
+        {
+          id: 'usr-inst-001',
+          name: 'Prof. Rafael',
+          email: 'instrutor@gym.com',
+          password: 'senhaCustomPreUpgrade',
+          role: 'instrutor',
+          active: true,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      ])
+    );
+
+    expect(await userRepo.authenticate('instrutor@gym.com', 'personal123')).toBeNull();
+    expect(await userRepo.authenticate('instrutor@gym.com', 'instrutor123')).toBeNull();
+
+    const migratedAuth = await userRepo.authenticate('instrutor@gym.com', 'senhaCustomPreUpgrade');
+    expect(migratedAuth).not.toBeNull();
+    expect(migratedAuth?.role).toBe('personal');
+
+    // When usr-inst-001 email changes away from personal@gym.com, the legacy alias stops resolving it
+    localStorage.clear();
+    await userRepo.update('usr-inst-001', { email: 'rafael@academia.com' });
+    expect(await userRepo.findByEmail('instrutor@gym.com')).toBeNull();
+  });
 });

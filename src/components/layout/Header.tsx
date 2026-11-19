@@ -333,7 +333,7 @@ export default function Header() {
                     Meu Perfil & Avatar
                   </button>
 
-                  {(user?.role === 'admin' || user?.role === 'superadmin') && (
+                  {user?.role === 'superadmin' && (
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -371,11 +371,13 @@ export default function Header() {
         onClose={() => setShowProfileModal(false)}
       />
 
-      {/* Backup & Database Management Modal */}
-      <BackupManagementModal
-        isOpen={showBackupModal}
-        onClose={() => setShowBackupModal(false)}
-      />
+      {/* Backup & Database Management Modal (SuperAdmin only) */}
+      {user?.role === 'superadmin' && (
+        <BackupManagementModal
+          isOpen={showBackupModal}
+          onClose={() => setShowBackupModal(false)}
+        />
+      )}
     </>
   );
 }

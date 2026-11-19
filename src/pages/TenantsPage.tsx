@@ -154,15 +154,14 @@ export default function TenantsPage() {
     }
     try {
       await tenantService.delete(deleteTarget.tenant.id);
-      if (deleteTarget.admin) {
-        await userService.delete(deleteTarget.admin.id);
-      }
       await activityService.log({
         userId: user?.id || 'usr-superadmin-001',
         type: 'tenant_created',
         description: `Academia removida: ${deleteTarget.tenant.name}`,
       });
-      toast.success(`Academia "${deleteTarget.tenant.name}" removida com sucesso.`);
+      toast.success(
+        `Academia "${deleteTarget.tenant.name}" e todas as contas vinculadas foram removidas com sucesso.`
+      );
       await loadTenants();
     } catch {
       toast.error('Erro ao excluir academia.');
@@ -505,7 +504,7 @@ export default function TenantsPage() {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Excluir Academia (Tenant)"
-        message={`Tem certeza que deseja remover a academia "${deleteTarget?.tenant.name}" e sua conta de administrador?`}
+        message={`Tem certeza que deseja remover a academia "${deleteTarget?.tenant.name}" e todas as contas vinculadas (administrador, personais e alunos)?`}
         confirmLabel="Sim, Excluir"
         cancelLabel="Cancelar"
         variant="danger"

@@ -27,7 +27,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
 
   async getByStudentId(studentId: string): Promise<PhysicalProgress[]> {
     return this.getStorageData()
-      .filter(p => p.studentId === studentId)
+      .filter(p => p.studentId === studentId && matchesActiveTenant(p.tenantId))
       .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
   }
 
@@ -51,7 +51,7 @@ export class LocalStorageProgressRepository implements IProgressRepository {
 
   async delete(id: string): Promise<boolean> {
     const records = this.getStorageData();
-    const filtered = records.filter(r => r.id !== id);
+    const filtered = records.filter(r => !(r.id === id && matchesActiveTenant(r.tenantId)));
     if (filtered.length === records.length) return false;
     this.saveStorageData(filtered);
     return true;
@@ -59,7 +59,9 @@ export class LocalStorageProgressRepository implements IProgressRepository {
 
   async deleteByStudentId(studentId: string): Promise<number> {
     const records = this.getStorageData();
-    const remaining = records.filter(r => r.studentId !== studentId);
+    const remaining = records.filter(
+      r => !(r.studentId === studentId && matchesActiveTenant(r.tenantId))
+    );
     const countDeleted = records.length - remaining.length;
     if (countDeleted > 0) {
       this.saveStorageData(remaining);

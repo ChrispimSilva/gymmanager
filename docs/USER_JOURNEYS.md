@@ -44,7 +44,7 @@ O **GymManager** é uma aplicação web progressiva (**PWA**) construída em Rea
 | `/configuracoes` *(Identidade Visual)* | ❌ | ✅ | ❌ | ❌ |
 | **Header: Meu Perfil & Avatar** | ✅ | ✅ | ✅ | ✅ |
 | **Header: Tema Claro / Escuro & Notificações** | ✅ | ✅ | ✅ | ✅ |
-| **Header: Backup & Gestão de Dados (AES-256)** | ✅ | ✅ | ❌ | ❌ |
+| **Header: Backup & Gestão de Dados (AES-256)** | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -131,7 +131,7 @@ Após confirmar o cadastro, a nova academia (`Iron Force VIP`, slug `iron-force-
 ![Listagem Atualizada com Nova Academia](screenshots/01-superadmin/04-academias-criada.png)
 
 ### 5. Backup & Segurança de Dados (AES-256)
-Pelo menu do avatar no cabeçalho (**Backup & Gestão de Dados**), SuperAdmin e Admin têm acesso à exportação criptografada (`.gymvault` usando **AES-256-GCM** com derivação **PBKDF2** de 100.000 iterações), restauração de arquivos `.gymvault` / `.json` e redefinição dos dados padrão de demonstração.
+Pelo menu do avatar no cabeçalho (**Backup & Gestão de Dados**), exclusivo do **SuperAdmin**, é possível realizar exportação criptografada de toda a plataforma (`.gymvault` usando **AES-256-GCM** com derivação **PBKDF2** de 100.000 iterações), restauração de arquivos `.gymvault` / `.json` e redefinição dos dados padrão de demonstração.
 
 ![Modal de Backup e Segurança de Dados](screenshots/01-superadmin/05-backup-dados.png)
 
