@@ -175,9 +175,11 @@ async function settle(page, delayMs = 850) {
     .waitForFunction(
       () => {
         const skeletons = document.querySelectorAll('.animate-pulse');
-        return Array.from(skeletons).every(el => !el.className.includes('h-'));
+        return Array.from(skeletons).every(
+          el => !/\bh-(12|20|28|44|48|64)\b/.test(el.className)
+        );
       },
-      { timeout: 6000 }
+      { timeout: 2500 }
     )
     .catch(() => {});
 }

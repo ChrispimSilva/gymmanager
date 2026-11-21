@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/favicon.svg" alt="GymManager Logo" width="80" />
+  <img src="docs/screenshots/00-auth/01-login-perfis.png" alt="GymManager — Tela de Login" width="720" />
 </p>
 
 <h1 align="center">GymManager</h1>
