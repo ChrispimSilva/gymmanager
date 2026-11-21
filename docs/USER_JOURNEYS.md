@@ -48,6 +48,19 @@ O **GymManager** é uma aplicação web progressiva (**PWA**) construída em Rea
 
 ---
 
+## 🎥 Vídeo de Demonstração (Formato Mobile PWA)
+
+Além das capturas estáticas abaixo, o fluxo completo das 5 jornadas em formato smartphone vertical (`390x844`, proporção `9:16`) está disponível no vídeo gravado automaticamente via Playwright:
+
+- ▶️ **[docs/videos/demo-jornadas-mobile.webm](videos/demo-jornadas-mobile.webm)** — Demonstração contínua cobrindo:
+  1. **Autenticação & Autocadastro:** seleção de perfil, validação cruzada, Portal SuperAdmin e formulário de vínculo à academia.
+  2. **SuperAdmin (SaaS):** indicadores globais, cadastro de novo tenant (`Iron Force VIP`) e backup criptografado (`AES-256-GCM`).
+  3. **Admin da Academia:** widget de assentos, gestão de personais, ficha de alunos, identidade visual e alternância para modo escuro.
+  4. **Personal Trainer:** criação e prescrição de treinos em lote, aparelhos, catálogo/filtros de exercícios, evolução (`Chart.js`) e auditoria.
+  5. **Aluno Mobile PWA:** ficha de treino, execução ao vivo com cronômetro e `RestTimerOverlay`, geração de card `9:16` para Instagram Stories, histórico de sessões, evolução pessoal e troca de avatar.
+
+---
+
 ## 🗺️ Fluxo Geral de Jornadas
 
 ```mermaid
@@ -314,11 +327,15 @@ O script automatizado em [`scripts/capture-user-journeys.mjs`](../scripts/captur
 ### Execução no WSL / Linux
 
 ```bash
-# Usando playwright/playwright-core instalado normalmente no ambiente:
+# Gerar/atualizar as capturas de tela (Desktop + Mobile):
 node scripts/capture-user-journeys.mjs
+
+# Gerar/atualizar o vídeo de demonstração no formato mobile (390x844):
+node scripts/record-mobile-demo.mjs
 
 # Ou informando um caminho específico para playwright-core (sem alterar o package.json):
 PLAYWRIGHT_MODULE_PATH=/caminho/para/node_modules/playwright-core node scripts/capture-user-journeys.mjs
+PLAYWRIGHT_MODULE_PATH=/caminho/para/node_modules/playwright-core node scripts/record-mobile-demo.mjs
 ```
 
 ### Variáveis de Ambiente Opcionais
